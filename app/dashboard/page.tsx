@@ -101,6 +101,13 @@ export default function DashboardPage() {
   const [resending, setResending] = useState<string | null>(null);
   const [escrowBalance, setEscrowBalance] = useState<string | null>(null);
   const [tab, setTab] = useState<"transfers" | "recurring" | "streams" | "subscriptions">("transfers");
+  const [staking, setStaking] = useState<{
+    validator: { name: string; address: string };
+    staked: string; rewards: string; total: string;
+    unpooling: string; unpoolTime: string | null;
+    apy: number; apyPercent: string;
+    activeTokens: { symbol: string; address: string }[];
+  } | null>(null);
 
   const load = useCallback(async () => {
     const [zapsRes, recurRes, streamRes, subRes] = await Promise.all([
@@ -124,16 +131,24 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const loadStaking = useCallback(async () => {
+    try {
+      const res = await fetch("/api/stake");
+      if (res.ok) setStaking(await res.json());
+    } catch { /* non-critical */ }
+  }, []);
+
   const triggerRecurring = useCallback(async () => {
     await fetch("/api/recurring/trigger", { method: "POST" });
   }, []);
 
   useEffect(() => {
-    Promise.all([load(), loadBalance(), triggerRecurring()]);
+    Promise.all([load(), loadBalance(), triggerRecurring(), loadStaking()]);
     const t = setInterval(load, 5000);
     const t2 = setInterval(loadBalance, 30000);
-    return () => { clearInterval(t); clearInterval(t2); };
-  }, [load, loadBalance, triggerRecurring]);
+    const t3 = setInterval(loadStaking, 60000);
+    return () => { clearInterval(t); clearInterval(t2); clearInterval(t3); };
+  }, [load, loadBalance, triggerRecurring, loadStaking]);
 
   const filtered = zaps.filter((z) => {
     if (filter !== "all" && z.status !== filter) return false;
@@ -235,6 +250,55 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* Staking position */}
+        {staking && (
+          <div className="card" style={{ padding: "18px 22px", marginBottom: 20, display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981" }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.05em" }}>Live staking</span>
+                <span style={{ fontSize: 11, color: "#374151" }}>via {staking.validator.name}</span>
+              </div>
+              <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#6366f1", letterSpacing: "-0.03em" }}>{staking.staked}</div>
+                  <div style={{ fontSize: 11, color: "#4b5563", marginTop: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Staked</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#10b981", letterSpacing: "-0.03em" }}>+{staking.rewards}</div>
+                  <div style={{ fontSize: 11, color: "#4b5563", marginTop: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Rewards</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#f0f0f4", letterSpacing: "-0.03em" }}>{staking.apyPercent}</div>
+                  <div style={{ fontSize: 11, color: "#4b5563", marginTop: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>APY</div>
+                </div>
+                {parseFloat(staking.unpooling) > 0 && (
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.03em" }}>{staking.unpooling}</div>
+                    <div style={{ fontSize: 11, color: "#4b5563", marginTop: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Exiting {staking.unpoolTime ? `· ready ${new Date(staking.unpoolTime).toLocaleDateString()}` : ""}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+              {staking.activeTokens.length > 0 && (
+                <div style={{ display: "flex", gap: 4 }}>
+                  {staking.activeTokens.map((t) => (
+                    <span key={t.symbol} style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", background: "#0d0d1f", border: "1px solid #6366f130", borderRadius: 4, padding: "2px 6px" }}>{t.symbol}</span>
+                  ))}
+                </div>
+              )}
+              <a href={`https://sepolia.voyager.online/contract/${staking.validator.address}`}
+                target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 11, color: "#374151", textDecoration: "none" }}>
+                View on Voyager →
+              </a>
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #1e1e35", flexWrap: "wrap" }}>
