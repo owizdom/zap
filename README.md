@@ -1,101 +1,103 @@
-# ⚡ Zap — Send Bitcoin to anyone's email. It earns yield while they wait.
+# Zapp
 
-> Built for the [Starkzap Developer Challenge](https://github.com/keep-starknet-strange/awesome-starkzap)
+Email-based crypto transfers on Starknet. Send STRK/ETH/USDC to any email address — recipient claims with a link, no wallet required.
 
-**Live app:** https://zapp-five.vercel.app
+Built for the [StarkZap Developer Challenge](https://github.com/keep-starknet-strange/awesome-starkzap).
 
-**ZapVault contract (Sepolia):** [`0x0728c9fdb708ddaf950f52032f1b136c74240cf40eebf4c51a6e7f6d0f0e7bbb`](https://sepolia.voyager.online/contract/0x0728c9fdb708ddaf950f52032f1b136c74240cf40eebf4c51a6e7f6d0f0e7bbb)
-
----
-
-## What is Zap?
-
-Zap turns sending Bitcoin into sending a message.
-
-1. **You send a Zap** — enter recipient email + STRK amount, connect Cartridge wallet, confirm.
-2. **It earns yield** — funds sit in a Starknet staking pool at ~5% APY while unclaimed.
-3. **They claim it** — recipient gets an email with a link, signs in with Google/Apple (no wallet, no seed phrase), and receives the original amount **plus yield earned**.
-
-The longer they wait to open it, the more they get.
+**Live:** https://zapp-five.vercel.app
 
 ---
 
-## Starkzap SDK Usage
+## What it does
 
-| Module | Usage |
-|--------|-------|
+- Sender enters a recipient email and amount, connects a wallet (Cartridge or ArgentX/Braavos), and confirms the transfer on-chain
+- Backend records the zap and emails the recipient a claim link
+- Recipient opens the link, enters a Starknet address, and receives the funds
+- Unclaimed zaps accrue yield (~5% APY). The longer they wait, the more they receive
+- After 30 days, the sender can reclaim via the ZapVault contract
+
+### Features
+
+- **Send** — one-time transfers (STRK, ETH, USDC)
+- **Request** — generate a payment link to send to a payer
+- **Split** — split a bill across multiple emails
+- **Stream** — salary streaming (per-second drip, recipient claims anytime)
+- **Subscriptions** — recurring pull payments (merchant-initiated)
+- **Contacts** — auto-populated from transfer history
+- **Dashboard** — full history, status, yield tracking
+
+---
+
+## Contract
+
+ZapVault is deployed on Starknet Sepolia. It holds ERC20 tokens in escrow, keyed by a unique `zap_id`. The owner (escrow wallet) releases funds to a verified recipient address. If unclaimed after 30 days, the sender can refund permissionlessly.
+
+| | |
+|---|---|
+| Contract | [`0x0728c9fdb708ddaf950f52032f1b136c74240cf40eebf4c51a6e7f6d0f0e7bbb`](https://sepolia.voyager.online/contract/0x0728c9fdb708ddaf950f52032f1b136c74240cf40eebf4c51a6e7f6d0f0e7bbb) |
+| Class hash | `0x6b19bfd3128159f6eaa91684b67a4a92f5d174fa98befdb5c2ea1141d1d85d3` |
+| Network | Starknet Sepolia |
+
+**Interface:**
+```
+deposit(zap_id, token, amount, recipient_hash)
+release(zap_id, recipient)   // owner only
+refund(zap_id)               // sender only, after 30 days
+get_zap(zap_id) -> ZapRecord
+```
+
+---
+
+## StarkZap SDK usage
+
+| Module | Where used |
+|--------|------------|
 | `StarkZap` | SDK init with AVNU Paymaster (gasless) |
-| `connectCartridge` | Sender wallet — social login, no seed phrase |
-| `OnboardStrategy.Signer` | Backend escrow wallet (server-managed key) |
-| `wallet.transfer()` | Sender→escrow deposit; escrow→recipient release |
-| `wallet.stake()` | STRK staking for yield accumulation |
-| `sepoliaTokens.STRK` | Sepolia token preset |
-| `Amount.parse()` | Type-safe amount parsing |
-| `fromAddress()` | Address conversion helper |
+| `OnboardStrategy.Signer` | Backend escrow wallet |
+| `StarkSigner` | Server-side signing for release/refund |
+| `wallet.transfer()` | Deposit to escrow; release to recipient |
+| `sepoliaTokens` | Token address presets |
+| `Amount.parse()` | Safe amount parsing |
+| `fromAddress()` | Address normalization |
+| `Staking` | Yield accumulation on held funds |
 
 ---
 
-## Architecture
+## Stack
 
-```
-Sender (browser)
-  └─ Cartridge wallet via StarkZap SDK
-       └─ transfer STRK → Escrow wallet
-            └─ Backend records zap (SQLite)
-                 └─ Resend sends claim email
-                      └─ Recipient opens link
-                           └─ Enters Starknet address
-                                └─ Backend releases STRK + yield → recipient
-```
-
-### Cairo Smart Contract (ZapVault)
-Deployed on **Starknet Sepolia** — `0x0728c9fdb708ddaf950f52032f1b136c74240cf40eebf4c51a6e7f6d0f0e7bbb`
-
-- `deposit()` — sender locks funds keyed by zap_id + keccak(recipient_email)
-- `release()` — owner releases to authenticated recipient address
-- `refund()` — sender reclaims after 30-day expiry (permissionless)
-- Full event log for auditability
-
-Class hash: `0x6b19bfd3128159f6eaa91684b67a4a92f5d174fa98befdb5c2ea1141d1d85d3`
+- **Next.js 15** (App Router, server API routes)
+- **StarkZap SDK v1** — wallet, ERC20, staking, gasless
+- **Cartridge Controller** — social login wallet (gasless via AVNU Paymaster)
+- **ArgentX / Braavos** — browser extension wallet support via `window.starknet`
+- **Cairo / Scarb** — ZapVault escrow contract
+- **Resend** — transactional email
+- **SQLite (better-sqlite3)** — zap record storage
 
 ---
 
-## Running Locally
+## Running locally
 
 ```bash
-git clone https://github.com/YOUR_HANDLE/zap
+git clone https://github.com/owizdom/zap
 cd zap
 npm install
-cp .env.example .env.local
-# Fill in ESCROW_PRIVATE_KEY, RESEND_API_KEY, NEXT_PUBLIC_APP_URL
+cp .env.example .env.local   # fill in vars below
 npm run dev
 ```
 
-### Environment Variables
+### Environment variables
 
 | Variable | Description |
 |----------|-------------|
-| `ESCROW_PRIVATE_KEY` | Starknet private key for the escrow wallet |
-| `ESCROW_ADDRESS` | Public address of the escrow wallet |
-| `NEXT_PUBLIC_ESCROW_ADDRESS` | Same address, exposed to browser for transfer target |
-| `RESEND_API_KEY` | Resend API key (free tier: 3000 emails/month) |
-| `RESEND_FROM` | Sender email address |
-| `NEXT_PUBLIC_APP_URL` | Deployment URL (for claim links) |
+| `ESCROW_PRIVATE_KEY` | Starknet private key for the server escrow wallet |
+| `ESCROW_ADDRESS` | Escrow wallet address |
+| `NEXT_PUBLIC_ESCROW_ADDRESS` | Same, exposed to browser |
+| `NEXT_PUBLIC_VAULT_ADDRESS` | ZapVault contract address |
 | `NEXT_PUBLIC_NETWORK` | `sepolia` or `mainnet` |
-| `NEXT_PUBLIC_VAULT_ADDRESS` | ZapVault contract address on Starknet Sepolia |
+| `RESEND_API_KEY` | Resend API key |
+| `RESEND_FROM` | Sender address (e.g. `Zapp <noreply@yourdomain.com>`) |
+| `NEXT_PUBLIC_APP_URL` | Deployment URL (used in claim email links) |
 
 ---
 
-## Tech Stack
-
-- **Next.js 15** — App Router, server API routes
-- **[Starkzap SDK](https://starkzap.io)** — Wallet, ERC20, staking, gasless
-- **Cartridge Controller** — Social login wallet for senders
-- **AVNU Paymaster** — Gasless transactions
-- **Cairo** — ZapVault trustless escrow contract
-- **Resend** — Email delivery
-- **better-sqlite3** — Zap record storage
-
----
-
-_Built on Starknet · Powered by Starkzap SDK_
+Built on Starknet. Powered by StarkZap SDK.
