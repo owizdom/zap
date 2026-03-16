@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { createZap } from "@/lib/db";
 import { sendClaimEmail } from "@/lib/email";
 import { parseToken } from "@/lib/yield";
-import { getLiveApy } from "@/lib/escrow";
+import { getLiveApy, stakeEscrow } from "@/lib/escrow";
 
 export async function POST(req: NextRequest) {
   try {
@@ -71,6 +71,13 @@ export async function POST(req: NextRequest) {
       message,
       apy,
     });
+
+    // Stake deposited STRK into validator pool (fire-and-forget, only STRK is stakeable)
+    if (normalizedToken === "STRK" && txHash) {
+      stakeEscrow(amountRaw).catch((err) =>
+        console.warn("[staking] stake-on-deposit failed:", String(err))
+      );
+    }
 
     return NextResponse.json({ id, status: zap.status });
   } catch (err) {

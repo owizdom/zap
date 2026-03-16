@@ -6,9 +6,17 @@ import {
   fromAddress,
   sepoliaTokens,
   mainnetTokens,
+  Staking,
+  sepoliaValidators,
+  ChainId,
+  getStakingPreset,
 } from "starkzap";
+import type { PoolMember } from "starkzap";
 
 const NETWORK = (process.env.NEXT_PUBLIC_NETWORK || "sepolia") as "sepolia" | "mainnet";
+
+// Use Nethermind on Sepolia (reliable, well-known validator)
+const VALIDATOR = sepoliaValidators.NETHERMIND;
 
 function getSdk(withPaymaster = true) {
   return new StarkZap({
@@ -40,6 +48,70 @@ function isPaymasterError(err: unknown): boolean {
   const msg = String(err).toLowerCase();
   return msg.includes("paymaster") || msg.includes("max_fee") || msg.includes("fee budget") || msg.includes("insufficient_max_fee");
 }
+
+// ─── Staking ─────────────────────────────────────────────────────────────────
+
+async function getStakingInstance(): Promise<Staking> {
+  const sdk = getSdk(false);
+  const provider = sdk.getProvider();
+  const chainId = NETWORK === "sepolia" ? ChainId.SEPOLIA : ChainId.MAINNET;
+  const stakingConfig = getStakingPreset(chainId);
+  const tokens = getTokens();
+  return Staking.fromStaker(
+    VALIDATOR.stakerAddress,
+    tokens.STRK,
+    provider,
+    stakingConfig,
+  );
+}
+
+/**
+ * Stake STRK from the escrow wallet into the validator pool.
+ * Uses stake() which auto-selects enter() vs add() based on membership.
+ */
+export async function stakeEscrow(amountRaw: string): Promise<string> {
+  const wallet = await getEscrowWallet(false);
+  const tokens = getTokens();
+  const staking = await getStakingInstance();
+  const amount = Amount.fromRaw(BigInt(amountRaw), tokens.STRK);
+  const tx = await staking.stake(wallet, amount);
+  await tx.wait();
+  return tx.hash;
+}
+
+/**
+ * Claim accumulated staking rewards to the escrow wallet.
+ * Returns the tx hash, or null if there are no rewards or wallet isn't staked.
+ */
+export async function claimStakingRewards(): Promise<string | null> {
+  try {
+    const wallet = await getEscrowWallet(false);
+    const staking = await getStakingInstance();
+    const position = await staking.getPosition(wallet);
+    if (!position || position.rewards.isZero()) return null;
+    const tx = await staking.claimRewards(wallet);
+    await tx.wait();
+    return tx.hash;
+  } catch (err) {
+    console.warn("[staking] claimRewards failed:", String(err));
+    return null;
+  }
+}
+
+/**
+ * Get the current staking position for the escrow wallet.
+ */
+export async function getStakingPosition(): Promise<PoolMember | null> {
+  try {
+    const wallet = await getEscrowWallet(false);
+    const staking = await getStakingInstance();
+    return staking.getPosition(wallet);
+  } catch {
+    return null;
+  }
+}
+
+// ─── Transfer ────────────────────────────────────────────────────────────────
 
 /**
  * Transfer any supported token from escrow wallet to a recipient.
@@ -87,22 +159,16 @@ let _cacheTime = 0;
 export async function getLiveApy(): Promise<number> {
   if (_cachedApy !== null && Date.now() - _cacheTime < 3_600_000) return _cachedApy;
   try {
-    const starkzap = await import("starkzap");
-    const validators = NETWORK === "sepolia"
-      ? starkzap.sepoliaValidators
-      : (starkzap.mainnetValidators ?? starkzap.sepoliaValidators);
-    const sdk = getSdk(false);
-    let best = 0.05;
-    for (const v of Object.values(validators).slice(0, 3)) {
-      try {
-        // @ts-expect-error SDK staking API
-        const pool = await sdk.staking?.getPool?.(v);
-        if (pool?.apy && pool.apy > 0) best = Math.max(best, pool.apy);
-      } catch { /* skip */ }
-    }
-    _cachedApy = best;
+    const staking = await getStakingInstance();
+    // Commission is the validator's cut. Starknet base reward ~5% APY post-commission.
+    const commission = await staking.getCommission();
+    // Approximate: staker APY = gross_yield * (1 - commission/100)
+    // Sepolia gross yield is ~5%; mainnet depends on total stake
+    const grossApy = 0.05;
+    const netApy = grossApy * (1 - commission / 100);
+    _cachedApy = netApy > 0 ? netApy : grossApy;
     _cacheTime = Date.now();
-    return best;
+    return _cachedApy;
   } catch {
     return 0.05;
   }

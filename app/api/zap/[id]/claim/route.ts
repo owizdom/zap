@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getZap, updateZapStatus } from "@/lib/db";
 import { calcYield, calcProtocolFee, formatToken } from "@/lib/yield";
-import { releaseToRecipient } from "@/lib/escrow";
+import { releaseToRecipient, claimStakingRewards } from "@/lib/escrow";
 
 export async function POST(
   req: NextRequest,
@@ -33,6 +33,13 @@ export async function POST(
     const recipientYield = yieldEarned - protocolFee;
     const totalRaw = BigInt(zap.amount_raw) + recipientYield;
     const totalStr = formatToken(totalRaw, zap.token);
+
+    // Harvest any accumulated staking rewards back into escrow before releasing
+    if (zap.token === "STRK") {
+      claimStakingRewards().catch((err) =>
+        console.warn("[staking] claimRewards before release failed:", String(err))
+      );
+    }
 
     // Mark claimed first to prevent double-claim race
     updateZapStatus(id, "claimed", {
