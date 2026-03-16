@@ -2,7 +2,9 @@
 
 > Built for the [Starkzap Developer Challenge](https://github.com/keep-starknet-strange/awesome-starkzap)
 
-**Live app:** https://zap.vercel.app
+**Live app:** https://zapp-five.vercel.app
+
+**ZapVault contract (Sepolia):** [`0x0728c9fdb708ddaf950f52032f1b136c74240cf40eebf4c51a6e7f6d0f0e7bbb`](https://sepolia.voyager.online/contract/0x0728c9fdb708ddaf950f52032f1b136c74240cf40eebf4c51a6e7f6d0f0e7bbb)
 
 ---
 
@@ -46,12 +48,15 @@ Sender (browser)
                                 └─ Backend releases STRK + yield → recipient
 ```
 
-### Cairo Smart Contract (ZapVault.cairo)
-The fully trustless on-chain version:
+### Cairo Smart Contract (ZapVault)
+Deployed on **Starknet Sepolia** — `0x0728c9fdb708ddaf950f52032f1b136c74240cf40eebf4c51a6e7f6d0f0e7bbb`
+
 - `deposit()` — sender locks funds keyed by zap_id + keccak(recipient_email)
 - `release()` — owner releases to authenticated recipient address
 - `refund()` — sender reclaims after 30-day expiry (permissionless)
 - Full event log for auditability
+
+Class hash: `0x6b19bfd3128159f6eaa91684b67a4a92f5d174fa98befdb5c2ea1141d1d85d3`
 
 ---
 
@@ -77,6 +82,7 @@ npm run dev
 | `RESEND_FROM` | Sender email address |
 | `NEXT_PUBLIC_APP_URL` | Deployment URL (for claim links) |
 | `NEXT_PUBLIC_NETWORK` | `sepolia` or `mainnet` |
+| `NEXT_PUBLIC_VAULT_ADDRESS` | ZapVault contract address on Starknet Sepolia |
 
 ---
 
