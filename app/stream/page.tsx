@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useEmailSession } from "@/lib/useEmailSession";
-import AuthButton from "@/app/components/AuthButton";
 
 const TOKENS = [
   { symbol: "STRK", color: "#6366f1" },
@@ -100,7 +99,6 @@ export default function StreamPage() {
         </Link>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Link href="/dashboard" style={{ color: "#6b7280", fontSize: 13, textDecoration: "none" }}>Dashboard</Link>
-          <AuthButton />
         </div>
       </nav>
 

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useEmailSession } from "@/lib/useEmailSession";
-import AuthButton from "@/app/components/AuthButton";
 
 type Token = "STRK" | "ETH" | "USDC";
 const TOKENS: Token[] = ["STRK", "ETH", "USDC"];
@@ -63,7 +62,6 @@ export default function RequestPage() {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Link href="/send" className="nav-link">Send</Link>
           <Link href="/dashboard" className="nav-link">Dashboard</Link>
-          <AuthButton />
         </div>
       </nav>
 

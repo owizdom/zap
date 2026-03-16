@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { StarkZap } from "starkzap";
-import { signIn } from "next-auth/react";
 import { useEmailSession } from "@/lib/useEmailSession";
-import AuthButton from "@/app/components/AuthButton";
 import { parseToken } from "@/lib/yield";
+
+const NETWORK: "sepolia" | "mainnet" = "sepolia";
 
 type Step = "form" | "wallet-select" | "connect" | "confirm" | "done";
 type Token = "STRK" | "ETH" | "USDC";
@@ -71,8 +71,7 @@ export default function SendPage() {
   const [liveApy, setLiveApy] = useState<string>("5.0%");
 
   const { email: sessionEmail, isSignedIn } = useEmailSession();
-  const ESCROW_ADDRESS = process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "";
-  const NETWORK = (process.env.NEXT_PUBLIC_NETWORK || "sepolia") as "sepolia" | "mainnet";
+  const ESCROW_ADDRESS = process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x1ec8670945342d14de97d1fcfe1bd607e611cd0e26271e6db2d034eeab5d0e8";
 
   useEffect(() => {
     fetch("/api/apy").then((r) => r.json()).then((d) => {
@@ -253,7 +252,6 @@ export default function SendPage() {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Link href="/request" className="nav-link">Request</Link>
           <Link href="/dashboard" className="nav-link">Dashboard</Link>
-          <AuthButton />
         </div>
       </nav>
 
@@ -403,21 +401,9 @@ export default function SendPage() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div>
-                  <label className="label">
-                    Your email
-                    {!isSignedIn && (
-                      <span style={{ color: "#4b5563", textTransform: "none", letterSpacing: 0, fontWeight: 400, marginLeft: 6 }}>
-                        — or <button type="button" onClick={() => signIn("google")} style={{ background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontSize: 12, padding: 0, fontWeight: 600 }}>sign in with Google</button>
-                      </span>
-                    )}
-                  </label>
+                  <label className="label">Your email</label>
                   <input className="input" type="email" placeholder="you@gmail.com" value={form.fromEmail}
-                    onChange={(e) => setForm((f) => ({ ...f, fromEmail: e.target.value }))}
-                    readOnly={isSignedIn}
-                    style={isSignedIn ? { opacity: 0.7, cursor: "default" } : undefined} />
-                  {isSignedIn && (
-                    <div style={{ fontSize: 11, color: "#10b981", marginTop: 4, fontWeight: 500 }}>✓ Signed in via Google</div>
-                  )}
+                    onChange={(e) => setForm((f) => ({ ...f, fromEmail: e.target.value }))} />
                 </div>
 
                 <div>

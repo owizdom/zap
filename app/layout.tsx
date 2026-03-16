@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import Providers from "./components/providers";
 
 export const metadata: Metadata = {
   title: "Zapp — Send crypto to anyone",
@@ -31,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
-      <body><Providers>{children}</Providers></body>
+      <body>{children}</body>
     </html>
   );
 }
