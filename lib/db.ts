@@ -1,7 +1,10 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const DB_PATH = path.join(process.cwd(), "zap.db");
+// Vercel: process.cwd() is read-only, use /tmp in production
+const DB_PATH = process.env.NODE_ENV === "production"
+  ? "/tmp/zap.db"
+  : path.join(process.cwd(), "zap.db");
 let _db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
