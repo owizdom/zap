@@ -1,0 +1,42 @@
+{
+  "name": "Zapp — Send crypto to anyone",
+  "short_name": "Zapp",
+  "description": "Send STRK, ETH, or USDC to any email. Earns real staking yield while unclaimed.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080810",
+  "theme_color": "#080810",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Send Transfer",
+      "url": "/send",
+      "description": "Send crypto to an email"
+    },
+    {
+      "name": "Request Money",
+      "url": "/request",
+      "description": "Request payment from anyone"
+    },
+    {
+      "name": "Dashboard",
+      "url": "/dashboard",
+      "description": "View all transfers"
+    }
+  ],
+  "categories": ["finance", "utilities"]
+}

@@ -1,0 +1,68 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getZap, updateZapStatus } from "@/lib/db";
+import { calcYield, calcProtocolFee, formatToken } from "@/lib/yield";
+import { releaseToRecipient } from "@/lib/escrow";
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const zap = getZap(id);
+
+    if (!zap) {
+      return NextResponse.json({ error: "Zap not found" }, { status: 404 });
+    }
+    if (zap.status === "claimed") {
+      return NextResponse.json({ error: "Already claimed" }, { status: 400 });
+    }
+    if (zap.status === "refunded") {
+      return NextResponse.json({ error: "This zap has been refunded" }, { status: 400 });
+    }
+
+    const { recipientAddress } = (await req.json()) as { recipientAddress: string };
+    if (!recipientAddress || !recipientAddress.startsWith("0x")) {
+      return NextResponse.json({ error: "Invalid recipient address" }, { status: 400 });
+    }
+
+    // Calculate yield with the APY stored at zap creation
+    const apy = zap.yield_apy ?? 0.05;
+    const yieldEarned = calcYield(zap.amount_raw, zap.created_at, apy);
+    const protocolFee = calcProtocolFee(yieldEarned);
+    const recipientYield = yieldEarned - protocolFee;
+    const totalRaw = BigInt(zap.amount_raw) + recipientYield;
+    const totalStr = formatToken(totalRaw, zap.token);
+
+    // Mark claimed first to prevent double-claim race
+    updateZapStatus(id, "claimed", {
+      recipient_address: recipientAddress,
+      claimed_at: Date.now(),
+      protocol_fee_raw: protocolFee.toString(),
+    });
+
+    let txHash: string;
+    try {
+      txHash = await releaseToRecipient(recipientAddress, totalStr, zap.token);
+    } catch (err) {
+      // Revert if transfer fails
+      updateZapStatus(id, "funded");
+      console.error("[claim] transfer failed:", err);
+      return NextResponse.json({ error: "Transfer failed — please try again" }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      txHash,
+      amount: formatToken(BigInt(zap.amount_raw), zap.token),
+      yieldEarned: formatToken(recipientYield, zap.token),
+      protocolFee: formatToken(protocolFee, zap.token),
+      total: totalStr,
+      token: zap.token,
+      apy,
+    });
+  } catch (err) {
+    console.error("[POST /api/zap/[id]/claim]", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}

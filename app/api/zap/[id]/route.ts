@@ -1,0 +1,39 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getZap } from "@/lib/db";
+import { calcYield, calcProtocolFee, formatToken } from "@/lib/yield";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const zap = getZap(id);
+
+  if (!zap) {
+    return NextResponse.json({ error: "Zap not found" }, { status: 404 });
+  }
+
+  const apy = zap.yield_apy ?? 0.05;
+  const yieldEarned = zap.status === "claimed" ? 0n : calcYield(zap.amount_raw, zap.created_at, apy);
+  const protocolFee = calcProtocolFee(yieldEarned);
+  const recipientYield = yieldEarned - protocolFee;
+  const totalRaw = BigInt(zap.amount_raw) + recipientYield;
+
+  return NextResponse.json({
+    id: zap.id,
+    fromEmail: zap.from_email,
+    toEmail: zap.to_email,
+    amount: formatToken(BigInt(zap.amount_raw), zap.token),
+    yieldEarned: formatToken(recipientYield, zap.token),
+    protocolFee: formatToken(protocolFee, zap.token),
+    total: formatToken(totalRaw, zap.token),
+    token: zap.token,
+    apy,
+    status: zap.status,
+    createdAt: zap.created_at,
+    claimedAt: zap.claimed_at,
+    message: zap.message,
+    type: zap.type,
+    groupId: zap.group_id,
+  });
+}

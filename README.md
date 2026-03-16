@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ⚡ Zap — Send Bitcoin to anyone's email. It earns yield while they wait.
 
-## Getting Started
+> Built for the [Starkzap Developer Challenge](https://github.com/keep-starknet-strange/awesome-starkzap)
 
-First, run the development server:
+**Live app:** https://zap.vercel.app
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## What is Zap?
+
+Zap turns sending Bitcoin into sending a message.
+
+1. **You send a Zap** — enter recipient email + STRK amount, connect Cartridge wallet, confirm.
+2. **It earns yield** — funds sit in a Starknet staking pool at ~5% APY while unclaimed.
+3. **They claim it** — recipient gets an email with a link, signs in with Google/Apple (no wallet, no seed phrase), and receives the original amount **plus yield earned**.
+
+The longer they wait to open it, the more they get.
+
+---
+
+## Starkzap SDK Usage
+
+| Module | Usage |
+|--------|-------|
+| `StarkZap` | SDK init with AVNU Paymaster (gasless) |
+| `connectCartridge` | Sender wallet — social login, no seed phrase |
+| `OnboardStrategy.Signer` | Backend escrow wallet (server-managed key) |
+| `wallet.transfer()` | Sender→escrow deposit; escrow→recipient release |
+| `wallet.stake()` | STRK staking for yield accumulation |
+| `sepoliaTokens.STRK` | Sepolia token preset |
+| `Amount.parse()` | Type-safe amount parsing |
+| `fromAddress()` | Address conversion helper |
+
+---
+
+## Architecture
+
+```
+Sender (browser)
+  └─ Cartridge wallet via StarkZap SDK
+       └─ transfer STRK → Escrow wallet
+            └─ Backend records zap (SQLite)
+                 └─ Resend sends claim email
+                      └─ Recipient opens link
+                           └─ Enters Starknet address
+                                └─ Backend releases STRK + yield → recipient
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Cairo Smart Contract (ZapVault.cairo)
+The fully trustless on-chain version:
+- `deposit()` — sender locks funds keyed by zap_id + keccak(recipient_email)
+- `release()` — owner releases to authenticated recipient address
+- `refund()` — sender reclaims after 30-day expiry (permissionless)
+- Full event log for auditability
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Running Locally
 
-## Learn More
+```bash
+git clone https://github.com/YOUR_HANDLE/zap
+cd zap
+npm install
+cp .env.example .env.local
+# Fill in ESCROW_PRIVATE_KEY, RESEND_API_KEY, NEXT_PUBLIC_APP_URL
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Description |
+|----------|-------------|
+| `ESCROW_PRIVATE_KEY` | Starknet private key for the escrow wallet |
+| `ESCROW_ADDRESS` | Public address of the escrow wallet |
+| `NEXT_PUBLIC_ESCROW_ADDRESS` | Same address, exposed to browser for transfer target |
+| `RESEND_API_KEY` | Resend API key (free tier: 3000 emails/month) |
+| `RESEND_FROM` | Sender email address |
+| `NEXT_PUBLIC_APP_URL` | Deployment URL (for claim links) |
+| `NEXT_PUBLIC_NETWORK` | `sepolia` or `mainnet` |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Tech Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Next.js 15** — App Router, server API routes
+- **[Starkzap SDK](https://starkzap.io)** — Wallet, ERC20, staking, gasless
+- **Cartridge Controller** — Social login wallet for senders
+- **AVNU Paymaster** — Gasless transactions
+- **Cairo** — ZapVault trustless escrow contract
+- **Resend** — Email delivery
+- **better-sqlite3** — Zap record storage
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+_Built on Starknet · Powered by Starkzap SDK_
