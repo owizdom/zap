@@ -419,8 +419,11 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #1e1e35" }}>
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #1e1e35", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontFamily: "monospace", fontSize: 11, color: "#2a2a4a" }}>{zap.id}</span>
+                        <Link href={`/claim/${zap.id}`} style={{ fontSize: 12, color: "#4b5563", textDecoration: "none" }}>
+                          View claim page →
+                        </Link>
                       </div>
                     </div>
                   );
