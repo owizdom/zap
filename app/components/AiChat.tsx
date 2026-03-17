@@ -1,22 +1,20 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
 
 export default function AiChat() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
-
-  const { messages, sendMessage, status, setMessages } = useChat({
-    transport,
-  });
-
-  const isLoading = status === "streaming" || status === "submitted";
 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
@@ -26,11 +24,51 @@ export default function AiChat() {
     if (open) inputRef.current?.focus();
   }, [open]);
 
-  const handleSend = (text?: string) => {
+  const handleSend = async (text?: string) => {
     const msg = text || input;
     if (!msg.trim() || isLoading) return;
-    sendMessage({ text: msg });
+
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: "user", content: msg };
+    const assistantMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: "assistant", content: "" };
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setInput("");
+    setIsLoading(true);
+
+    try {
+      const allMessages = [...messages, userMsg];
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: allMessages.map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (!res.ok || !res.body) throw new Error("Failed");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        full += decoder.decode(value, { stream: true });
+        const current = full;
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantMsg.id ? { ...m, content: current } : m))
+        );
+      }
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMsg.id ? { ...m, content: "Sorry, something went wrong." } : m
+        )
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -167,19 +205,8 @@ export default function AiChat() {
             )}
 
             {messages
-              .filter((m) => m.role === "user" || m.role === "assistant")
+              .filter((m) => m.content)
               .map((m) => {
-                let text = "";
-                if (m.parts && m.parts.length > 0) {
-                  text = m.parts
-                    .filter((p: any) => p.type === "text")
-                    .map((p: any) => p.text || "")
-                    .join("");
-                }
-                if (!text && (m as any).content) {
-                  text = (m as any).content;
-                }
-                if (!text) return null;
                 return (
                   <div
                     key={m.id}
@@ -201,7 +228,7 @@ export default function AiChat() {
                         wordBreak: "break-word",
                       }}
                     >
-                      {text}
+                      {m.content}
                     </div>
                     <div
                       style={{

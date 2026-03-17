@@ -99,5 +99,5 @@ Guidelines:
     messages,
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toTextStreamResponse();
 }
