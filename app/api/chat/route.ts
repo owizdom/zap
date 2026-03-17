@@ -1,7 +1,9 @@
 // @ts-nocheck
 import { streamText, tool } from "ai";
-import { google } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
 import { z } from "zod";
+
+const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 import { getAllZaps } from "@/lib/db";
 import { calcYield, calcProtocolFee, formatToken } from "@/lib/yield";
 import {
@@ -16,7 +18,7 @@ export async function POST(req: Request) {
   const { messages } = await req.json();
 
   const result = streamText({
-    model: google("gemini-2.0-flash"),
+    model: groq("llama-3.3-70b-versatile"),
     system: `You are the Zapp AI assistant — a helpful agent for Zapp, an email-native crypto transfer platform on Starknet.
 
 You can check balances, staking positions, APY rates, list transfers/streams/requests, and answer questions about Zapp.
