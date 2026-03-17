@@ -10,11 +10,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "email param required" }, { status: 400 });
   }
 
-  const contacts = getContacts(email);
+  const contacts = await getContacts(email);
 
   if (contact) {
     // Return history with a specific contact
-    const history = getContactHistory(email, contact);
+    const history = await getContactHistory(email, contact);
     return NextResponse.json({ contacts, history });
   }
 
@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest) {
     if (!ownerEmail || !contactEmail || !nickname) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
-    setContactNickname(ownerEmail, contactEmail, nickname);
+    await setContactNickname(ownerEmail, contactEmail, nickname);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[PATCH /api/contacts]", err);

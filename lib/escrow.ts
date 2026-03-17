@@ -1,40 +1,102 @@
 import {
   StarkZap,
   StarkSigner,
+  PrivySigner,
   OnboardStrategy,
   Amount,
   fromAddress,
   sepoliaTokens,
   mainnetTokens,
+  getPresets,
   Staking,
   sepoliaValidators,
   ChainId,
   getStakingPreset,
+  ArgentXV050Preset,
+  accountPresets,
 } from "starkzap";
-import type { PoolMember, Token } from "starkzap";
+import type { PoolMember, Token, FeeMode, PrivySignerConfig } from "starkzap";
 
-const NETWORK = (process.env.NEXT_PUBLIC_NETWORK || "sepolia") as "sepolia" | "mainnet";
+const NETWORK = ((process.env.NEXT_PUBLIC_NETWORK || "sepolia").trim()) as "sepolia" | "mainnet";
 
 // Nethermind — reliable validator on Sepolia and Mainnet
 const VALIDATOR = sepoliaValidators.NETHERMIND;
 
-function getSdk(withPaymaster = true) {
+function getChainId(): ChainId {
+  return NETWORK === "sepolia" ? ChainId.SEPOLIA : ChainId.MAINNET;
+}
+
+function getSdk(feeMode: FeeMode = "user_pays") {
   return new StarkZap({
     network: NETWORK,
-    ...(withPaymaster && { paymaster: { nodeUrl: "https://starknet.paymaster.avnu.fi" } }),
+    ...(feeMode === "sponsored" && { paymaster: { nodeUrl: "https://starknet.paymaster.avnu.fi" } }),
   });
+}
+
+/** @deprecated Use getSdk(feeMode) instead */
+function getSdkLegacy(withPaymaster = true) {
+  return getSdk(withPaymaster ? "sponsored" : "user_pays");
 }
 
 export function getTokens() {
   return NETWORK === "sepolia" ? sepoliaTokens : mainnetTokens;
 }
 
+/**
+ * Dynamically discover all available token presets for the current chain.
+ * Returns a record of symbol -> Token, including tokens not in the hardcoded
+ * sepoliaTokens/mainnetTokens constants.
+ */
+export function getAvailableTokenPresets(): Record<string, Token> {
+  return getPresets(getChainId());
+}
+
+/**
+ * Returns all available account presets (wallet types).
+ * Useful for displaying wallet selection UI.
+ */
+export function getAvailableAccountPresets() {
+  return {
+    presets: accountPresets,
+    recommended: {
+      privy: ArgentXV050Preset,
+      description: "ArgentX v0.5.0 — used by Privy for Starknet wallets",
+    },
+  };
+}
+
 export async function getEscrowWallet(withPaymaster = true) {
-  const privateKey = process.env.ESCROW_PRIVATE_KEY;
+  const privateKey = process.env.ESCROW_PRIVATE_KEY?.trim();
   if (!privateKey) throw new Error("ESCROW_PRIVATE_KEY not set");
-  const { wallet } = await getSdk(withPaymaster).onboard({
+  const { wallet } = await getSdkLegacy(withPaymaster).onboard({
     strategy: OnboardStrategy.Signer,
     account: { signer: new StarkSigner(privateKey) },
+    deploy: "if_needed",
+  });
+  return wallet;
+}
+
+/**
+ * Create a Privy-managed wallet via the SDK onboard flow.
+ * Used server-side to sign transactions on behalf of Privy users.
+ */
+export async function getPrivyWallet(config: PrivySignerConfig, feeMode: FeeMode = "sponsored") {
+  const sdk = getSdk(feeMode);
+  const { wallet } = await sdk.onboard({
+    strategy: OnboardStrategy.Privy,
+    privy: {
+      resolve: async () => ({
+        walletId: config.walletId,
+        publicKey: config.publicKey,
+        serverUrl: config.serverUrl,
+        rawSign: config.rawSign,
+        headers: config.headers,
+        buildBody: config.buildBody,
+        requestTimeoutMs: config.requestTimeoutMs,
+      }),
+    },
+    accountPreset: ArgentXV050Preset,
+    feeMode,
     deploy: "if_needed",
   });
   return wallet;
@@ -49,12 +111,52 @@ function isPaymasterError(err: unknown): boolean {
   return msg.includes("paymaster") || msg.includes("max_fee") || msg.includes("fee budget") || msg.includes("insufficient_max_fee");
 }
 
+// ─── Fee estimation ──────────────────────────────────────────────────────────
+
+/**
+ * Estimate the transaction fee for a transfer.
+ * Returns the estimated fee in human-readable format and the fee mode used.
+ */
+export async function estimateTransferFee(
+  recipientAddress: string,
+  amountStr: string,
+  tokenSymbol = "STRK",
+  feeMode: FeeMode = "sponsored"
+): Promise<{ estimatedFee: string; feeToken: string; feeMode: FeeMode }> {
+  const tokens = getTokens();
+  const token = tokens[tokenSymbol as keyof typeof tokens] ?? tokens.STRK;
+
+  if (feeMode === "sponsored") {
+    return { estimatedFee: "0", feeToken: "STRK", feeMode: "sponsored" };
+  }
+
+  try {
+    const wallet = await getEscrowWallet(false);
+    const { cairo } = await import("starknet");
+    const amountRaw = Amount.parse(amountStr, token);
+    const amount256 = cairo.uint256(amountRaw.toBase());
+
+    const fee = await wallet.estimateFee([{
+      contractAddress: token.address as string,
+      entrypoint: "transfer",
+      calldata: [recipientAddress, amount256.low.toString(), amount256.high.toString()],
+    }]);
+
+    const feeWei = BigInt(fee.overall_fee.toString());
+    const feeFormatted = (Number(feeWei) / 1e18).toFixed(8);
+
+    return { estimatedFee: feeFormatted, feeToken: "ETH", feeMode: "user_pays" };
+  } catch {
+    return { estimatedFee: "~0.0001", feeToken: "ETH", feeMode: "user_pays" };
+  }
+}
+
 // ─── Staking helpers ──────────────────────────────────────────────────────────
 
 function getStakingDeps() {
-  const sdk = getSdk(false);
+  const sdk = getSdkLegacy(false);
   const provider = sdk.getProvider();
-  const chainId = NETWORK === "sepolia" ? ChainId.SEPOLIA : ChainId.MAINNET;
+  const chainId = getChainId();
   const stakingConfig = getStakingPreset(chainId);
   return { provider, stakingConfig };
 }

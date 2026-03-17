@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     const durationSeconds = durationDays * 86400;
     const amountPerSecondRaw = totalRaw / BigInt(durationSeconds);
 
-    const stream = createStream({
+    const stream = await createStream({
       id,
       from_email: fromEmail,
       to_email: toEmail,
@@ -73,6 +73,6 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const streams = getAllStreams();
+  const streams = await getAllStreams();
   return NextResponse.json(streams);
 }

@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const zap = getZap(id);
+  const zap = await getZap(id);
 
   if (!zap) {
     return NextResponse.json({ error: "Zap not found" }, { status: 404 });

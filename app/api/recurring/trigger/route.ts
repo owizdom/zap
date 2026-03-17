@@ -12,7 +12,7 @@ import { getLiveApy } from "@/lib/escrow";
 
 export async function POST() {
   try {
-    const due = getDueRecurring();
+    const due = await getDueRecurring();
     const results: string[] = [];
 
     for (const rec of due) {
@@ -22,7 +22,7 @@ export async function POST() {
         const claimSecret = crypto.randomBytes(32).toString("hex");
         const amount = formatToken(BigInt(rec.amount_raw), rec.token);
 
-        createZap({
+        await createZap({
           id: zapId,
           from_email: rec.from_email,
           to_email: rec.to_email,
@@ -49,7 +49,7 @@ export async function POST() {
 
         // Schedule next trigger
         const nextAt = rec.next_at + rec.interval_days * 24 * 60 * 60 * 1000;
-        updateRecurringNext(rec.id, nextAt);
+        await updateRecurringNext(rec.id, nextAt);
         results.push(zapId);
       } catch (err) {
         console.error(`[recurring/trigger] failed for ${rec.id}:`, err);

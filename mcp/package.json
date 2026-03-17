@@ -1,0 +1,23 @@
+{
+  "name": "@zapp/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Zapp — email-native crypto transfers on Starknet",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "npx tsx src/index.ts",
+    "build": "tsc",
+    "dev": "npx tsx --watch src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@privy-io/react-auth": "^3.17.0",
+    "@privy-io/server-auth": "^1.32.5",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.19.0",
+    "typescript": "^5"
+  }
+}

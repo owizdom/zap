@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuid } from "uuid";
-import { createRequest, getDb } from "@/lib/db";
+import { createRequest, getAllRequests } from "@/lib/db";
 import { sendRequestEmail } from "@/lib/email";
 import { parseToken } from "@/lib/yield";
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const id = uuid();
     const amountRaw = parseToken(amount, normalizedToken).toString();
 
-    createRequest({
+    await createRequest({
       id,
       from_email: fromEmail,
       to_email: toEmail || "",
@@ -48,7 +48,6 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const db = getDb();
-  const requests = db.prepare("SELECT * FROM requests ORDER BY created_at DESC").all();
+  const requests = await getAllRequests();
   return NextResponse.json(requests);
 }

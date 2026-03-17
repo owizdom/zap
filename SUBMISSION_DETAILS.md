@@ -329,20 +329,37 @@ No OpenZeppelin dependency — ERC20 interface is inlined to keep the contract m
 
 ---
 
+## MCP Server — 30 AI Agent Tools
+
+Zapp includes a Model Context Protocol (MCP) server at `mcp/` that lets AI agents interact with the full platform. **30 tools** across 7 categories: Transfers, Payment Requests, Streams, Subscriptions, Recurring, Wallet & Staking, Contacts.
+
+```bash
+cd mcp && npm install && npx tsx src/index.ts
+```
+
+Compatible with Claude Desktop, Claude Code, Cursor, Windsurf, and any MCP client.
+
+See [`mcp/README.md`](mcp/README.md) for the full tool list and setup instructions.
+
+---
+
 ## SDK module count
 
 | Module | Used |
 |--------|------|
 | `StarkZap` | init |
 | `OnboardStrategy.Signer` | server escrow wallet |
+| `OnboardStrategy.Privy` | social login claims (Google → Privy wallet) |
 | `OnboardStrategy.Cartridge` | sender gasless wallet |
 | `StarkSigner` | escrow key management |
+| `PrivySigner` | Privy-managed wallet signing for recipients |
 | `Amount.parse()` | human input → SDK amount |
 | `Amount.fromRaw()` | raw bigint → SDK amount |
 | `fromAddress()` | address normalisation |
 | `sepoliaTokens` | STRK / ETH / USDC presets |
 | `mainnetTokens` | mainnet token presets |
 | `sepoliaValidators` | validator selection |
+| `getPresets()` | dynamic token preset discovery per chain |
 | `Staking.fromStaker()` | pool instance |
 | `Staking.activeTokens()` | dynamic token discovery |
 | `staking.stake()` | enter/add pool |
@@ -354,6 +371,9 @@ No OpenZeppelin dependency — ERC20 interface is inlined to keep the contract m
 | `TxBuilder` | atomic multicall for all ops |
 | `getStakingPreset()` | staking contract resolution |
 | `ChainId` | network chain ID |
+| `ArgentXV050Preset` | account preset for Privy wallets |
+| `accountPresets` | all available account type configs |
+| `FeeMode` | fee configuration (sponsored / user_pays) |
 | AVNU Paymaster | gasless releases |
 
-**22 distinct SDK modules used.**
+**28 distinct SDK modules used.**

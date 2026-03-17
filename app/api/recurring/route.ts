@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const amountRaw = parseToken(amount, normalizedToken).toString();
     const nextAt = Date.now() + intervalDays * 24 * 60 * 60 * 1000;
 
-    const rec = createRecurring({
+    const rec = await createRecurring({
       id,
       from_email: fromEmail,
       to_email: toEmail,
@@ -46,5 +46,5 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json(getAllRecurring());
+  return NextResponse.json(await getAllRecurring());
 }

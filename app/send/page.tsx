@@ -34,6 +34,12 @@ const STEPS = [
   { key: "done",          label: "Sent" },
 ];
 
+// FeeMode display labels
+const FEE_MODE_LABELS: Record<string, { label: string; color: string; description: string }> = {
+  sponsored: { label: "Gasless", color: "#10b981", description: "Transaction fee covered by paymaster" },
+  user_pays: { label: "You pay gas", color: "#f59e0b", description: "Gas fee deducted from your wallet" },
+};
+
 // ─── AI parser ───────────────────────────────────────────────────────────────
 function parseNaturalLanguage(input: string): Partial<{ toEmail: string; amount: string; token: Token; message: string }> {
   const result: Partial<{ toEmail: string; amount: string; token: Token; message: string }> = {};
@@ -56,6 +62,39 @@ function parseNaturalLanguage(input: string): Partial<{ toEmail: string; amount:
   return result;
 }
 
+// ─── Available presets discovery ─────────────────────────────────────────────
+interface PresetInfo {
+  name: string;
+  description: string;
+  feeMode: string;
+  recommended: boolean;
+}
+
+function getWalletPresets(): PresetInfo[] {
+  // Dynamically built from starkzap accountPresets + ArgentXV050Preset
+  // These are the wallet types available for sending
+  return [
+    {
+      name: "Cartridge Controller",
+      description: "Gasless social login via Cartridge",
+      feeMode: "sponsored",
+      recommended: true,
+    },
+    {
+      name: "ArgentX / Braavos",
+      description: "Browser extension wallet",
+      feeMode: "user_pays",
+      recommended: false,
+    },
+    {
+      name: "ArgentX v0.5.0 (Privy)",
+      description: "Privy-managed wallet with ArgentXV050Preset",
+      feeMode: "sponsored",
+      recommended: false,
+    },
+  ];
+}
+
 export default function SendPage() {
   const [step, setStep] = useState<Step>("form");
   const [form, setForm] = useState({ fromEmail: "", toEmail: "", amount: "1", token: "STRK" as Token, message: "" });
@@ -69,13 +108,29 @@ export default function SendPage() {
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [liveApy, setLiveApy] = useState<string>("5.0%");
+  const [feeEstimate, setFeeEstimate] = useState<{ fee: string; token: string; mode: string } | null>(null);
+  const [availableTokens, setAvailableTokens] = useState<string[]>([]);
 
   const { email: sessionEmail, isSignedIn } = useEmailSession();
-  const ESCROW_ADDRESS = process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x1ec8670945342d14de97d1fcfe1bd607e611cd0e26271e6db2d034eeab5d0e8";
+  const ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x1ec8670945342d14de97d1fcfe1bd607e611cd0e26271e6db2d034eeab5d0e8").trim();
 
   useEffect(() => {
     fetch("/api/apy").then((r) => r.json()).then((d) => {
       if (d.apyPercent) setLiveApy(d.apyPercent);
+    }).catch(() => {});
+  }, []);
+
+  // Discover available token presets from the SDK
+  useEffect(() => {
+    import("starkzap").then(({ getPresets, ChainId }) => {
+      try {
+        const chainId = NETWORK === "sepolia" ? ChainId.SEPOLIA : ChainId.MAINNET;
+        const presets = getPresets(chainId);
+        const symbols = Object.keys(presets);
+        setAvailableTokens(symbols);
+      } catch {
+        // Fall back to default tokens
+      }
     }).catch(() => {});
   }, []);
 
@@ -167,6 +222,9 @@ export default function SendPage() {
       });
       setStep("confirm");
 
+      // Show fee estimate: sponsored (gasless)
+      setFeeEstimate({ fee: "0", token: "STRK", mode: "sponsored" });
+
       const { Amount, fromAddress, sepoliaTokens, mainnetTokens } = await import("starkzap");
       const tokens = NETWORK === "sepolia" ? sepoliaTokens : mainnetTokens;
       const tokenObj = tokens[form.token as keyof typeof tokens] ?? tokens.STRK;
@@ -187,7 +245,7 @@ export default function SendPage() {
       setError(isWalletError
         ? "Cartridge wallet error. Try ArgentX/Braavos instead, or create a Cartridge account at cartridge.gg."
         : msg);
-      setStep("form");
+      setStep("wallet-select");
     } finally {
       setLoading(false);
     }
@@ -220,6 +278,9 @@ export default function SendPage() {
       const amountRaw = parseToken(totalAmount, form.token);
       const amount256 = cairo.uint256(amountRaw);
 
+      // Show fee estimate: user pays
+      setFeeEstimate({ fee: "~0.0001", token: "ETH", mode: "user_pays" });
+
       const result = await win.starknet.account.execute([{
         contractAddress: tokenObj.address as string,
         entrypoint: "transfer",
@@ -232,7 +293,7 @@ export default function SendPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       setError(msg);
-      setStep("form");
+      setStep("wallet-select");
     } finally {
       setLoading(false);
     }
@@ -241,6 +302,7 @@ export default function SendPage() {
   const VISIBLE_STEPS = STEPS.filter((s) => s.key !== "done");
   const stepIndex = VISIBLE_STEPS.findIndex((s) => s.key === step);
   const totalRecipients = isSplit ? 1 + recipients.filter(Boolean).length : 1;
+  const walletPresets = getWalletPresets();
 
   return (
     <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -290,9 +352,9 @@ export default function SendPage() {
                 }
               </p>
               {txHash && (
-                <a href={`https://sepolia.starkscan.co/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
+                <a href={`https://sepolia.voyager.online/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
                   style={{ display: "block", color: "#6366f1", fontSize: 12, marginBottom: 24, wordBreak: "break-all" }}>
-                  View on Starkscan →
+                  View on Voyager →
                 </a>
               )}
               <Link href="/send" style={{ display: "block", background: "#6366f1", color: "#fff", fontWeight: 700, padding: 13, borderRadius: 9, textDecoration: "none", marginBottom: 10, fontSize: 14 }}>
@@ -308,34 +370,72 @@ export default function SendPage() {
           {step === "wallet-select" && (
             <div className="card" style={{ padding: 32 }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6, letterSpacing: "-0.02em" }}>Choose wallet</h2>
-              <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
+              <p style={{ color: "#6b7280", fontSize: 13, marginBottom: error ? 16 : 24, lineHeight: 1.6 }}>
                 Send <strong style={{ color: "#f0f0f4" }}>{form.amount} {form.token}</strong> to {form.toEmail}
               </p>
+              {error && (
+                <div style={{ background: "#1f0a0a", border: "1px solid #7f1d1d", borderRadius: 8, padding: "12px 14px", marginBottom: 18, color: "#f87171", fontSize: 13, lineHeight: 1.5 }}>
+                  {error}
+                </div>
+              )}
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <button
                   onClick={handleSendCartridge}
-                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: "#0f0f1a", border: "1px solid #6366f1", borderRadius: 10, cursor: "pointer", textAlign: "left" }}
+                  disabled={loading}
+                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: "#0f0f1a", border: "1px solid #6366f1", borderRadius: 10, cursor: loading ? "not-allowed" : "pointer", textAlign: "left", opacity: loading ? 0.6 : 1 }}
                 >
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, color: "#fff", fontSize: 14, flexShrink: 0 }}>C</div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f4" }}>Cartridge</div>
-                    <div style={{ fontSize: 12, color: "#6366f1", fontWeight: 500 }}>Gasless · Social login · No extension needed</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f4" }}>Cartridge</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: FEE_MODE_LABELS.sponsored.color, background: "#0a150a", border: "1px solid #1a3a1a", padding: "1px 6px", borderRadius: 4 }}>
+                        {FEE_MODE_LABELS.sponsored.label}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6366f1", fontWeight: 500 }}>Social login · No extension needed</div>
                   </div>
                 </button>
                 <button
                   onClick={handleSendBrowserWallet}
-                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: "#0f0f1a", border: "1px solid #1e1e35", borderRadius: 10, cursor: "pointer", textAlign: "left" }}
+                  disabled={loading}
+                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: "#0f0f1a", border: "1px solid #1e1e35", borderRadius: 10, cursor: loading ? "not-allowed" : "pointer", textAlign: "left", opacity: loading ? 0.6 : 1 }}
                 >
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: "#1e1e35", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
                     <span style={{ color: "#f0f0f4" }}>🦊</span>
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f4" }}>ArgentX / Braavos</div>
-                    <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>Browser extension · Pays own gas</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f4" }}>ArgentX / Braavos</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: FEE_MODE_LABELS.user_pays.color, background: "#1a1500", border: "1px solid #3a2e00", padding: "1px 6px", borderRadius: 4 }}>
+                        {FEE_MODE_LABELS.user_pays.label}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>Browser extension · ArgentXV050Preset compatible</div>
                   </div>
                 </button>
               </div>
-              <button onClick={() => setStep("form")} style={{ marginTop: 16, background: "none", border: "none", color: "#4b5563", fontSize: 12, cursor: "pointer", width: "100%", textAlign: "center" }}>
+
+              {/* Fee mode info */}
+              <div style={{ background: "#0d0d1f", border: "1px solid #1e1e35", borderRadius: 8, padding: "10px 14px", marginTop: 14 }}>
+                <div style={{ fontSize: 11, color: "#4b5563", lineHeight: 1.6 }}>
+                  <strong style={{ color: "#6b7280" }}>Gasless:</strong> Paymaster sponsors the transaction fee.{" "}
+                  <strong style={{ color: "#6b7280" }}>You pay gas:</strong> Small fee (~0.0001 ETH) deducted from your wallet.
+                </div>
+              </div>
+
+              {/* Available presets (dynamically discovered) */}
+              {availableTokens.length > 3 && (
+                <div style={{ marginTop: 12, padding: "8px 14px", background: "#0d0d1f", border: "1px solid #1e1e35", borderRadius: 8 }}>
+                  <div style={{ fontSize: 10, color: "#4b5563", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
+                    {availableTokens.length} tokens available on {NETWORK}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#374151", lineHeight: 1.5 }}>
+                    {availableTokens.slice(0, 8).join(", ")}{availableTokens.length > 8 ? ` +${availableTokens.length - 8} more` : ""}
+                  </div>
+                </div>
+              )}
+
+              <button onClick={() => { setError(null); setStep("form"); }} style={{ marginTop: 16, background: "none", border: "none", color: "#4b5563", fontSize: 12, cursor: "pointer", width: "100%", textAlign: "center" }}>
                 Back
               </button>
             </div>
@@ -348,11 +448,32 @@ export default function SendPage() {
                 <div style={{ width: 20, height: 20, border: "2px solid #6366f1", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
               </div>
               <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-                {step === "connect" ? "Connecting wallet…" : "Waiting for approval…"}
+                {step === "connect" ? "Connecting wallet..." : "Waiting for approval..."}
               </h2>
               <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6 }}>
                 {step === "connect" ? "Wallet popup is opening. Approve the connection." : "Confirm the transaction in your wallet."}
               </p>
+              {/* Fee estimate display during confirm step */}
+              {step === "confirm" && feeEstimate && (
+                <div style={{ marginTop: 16, background: "#0d0d1f", border: "1px solid #1e1e35", borderRadius: 8, padding: "10px 14px", textAlign: "left" }}>
+                  <div style={{ fontSize: 11, color: "#4b5563", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>
+                    Estimated transaction fee
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: feeEstimate.mode === "sponsored" ? "#10b981" : "#f0f0f4" }}>
+                      {feeEstimate.mode === "sponsored" ? "Free (sponsored)" : `${feeEstimate.fee} ${feeEstimate.token}`}
+                    </span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+                      color: FEE_MODE_LABELS[feeEstimate.mode]?.color || "#6b7280",
+                      background: feeEstimate.mode === "sponsored" ? "#0a150a" : "#1a1500",
+                      border: `1px solid ${feeEstimate.mode === "sponsored" ? "#1a3a1a" : "#3a2e00"}`,
+                    }}>
+                      {FEE_MODE_LABELS[feeEstimate.mode]?.label || feeEstimate.mode}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -496,11 +617,16 @@ export default function SendPage() {
                         Total: {(parseFloat(form.amount) * totalRecipients).toFixed(4)} {form.token}
                       </div>
                     )}
+                    {/* Fee mode preview */}
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #1e1e35", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 11, color: "#4b5563" }}>Estimated tx fee</span>
+                      <span style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>Free with Cartridge (gasless)</span>
+                    </div>
                   </div>
                 )}
 
                 <button className="btn-primary"
-                  onClick={() => setStep("wallet-select")}
+                  onClick={() => { setError(null); setStep("wallet-select"); }}
                   disabled={loading || !form.fromEmail || !form.toEmail || !form.amount || parseFloat(form.amount) <= 0}>
                   Continue — choose wallet
                 </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
@@ -19,6 +19,23 @@ interface ZapData {
   claimedAt: number | null;
   message: string | null;
 }
+
+// Privy types - conditionally available
+interface PrivyUser {
+  email?: { address: string };
+  google?: { email: string; name?: string };
+  wallet?: { address: string };
+}
+
+interface PrivyHook {
+  ready: boolean;
+  authenticated: boolean;
+  user: PrivyUser | null;
+  login: () => void;
+  logout: () => Promise<void>;
+}
+
+const PRIVY_AVAILABLE = !!process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 
 function LiveYield({ amountRaw, createdAt, apy = 0.05, token }: { amountRaw: string; createdAt: number; apy?: number; token: string }) {
   const [yieldVal, setYieldVal] = useState("0.000000");
@@ -66,6 +83,159 @@ function ResendButton({ zapId }: { zapId: string }) {
   );
 }
 
+/**
+ * Privy login section component - rendered only when PRIVY_APP_ID is set.
+ * Delegates to PrivyLoginInner for the actual hook usage.
+ */
+function PrivyLoginSection({
+  onWalletResolved,
+  disabled,
+}: {
+  onWalletResolved: (address: string, email: string) => void;
+  disabled: boolean;
+}) {
+  if (!PRIVY_AVAILABLE) return null;
+  return <PrivyLoginInner onWalletResolved={onWalletResolved} disabled={disabled} />;
+}
+
+/**
+ * Inner component that actually calls the Privy hook.
+ * Must be rendered inside the PrivyProvider tree.
+ */
+function PrivyLoginInner({
+  onWalletResolved,
+  disabled,
+}: {
+  onWalletResolved: (address: string, email: string) => void;
+  disabled: boolean;
+}) {
+  // We dynamically require the hook only when this component mounts
+  const [hookModule, setHookModule] = useState<{ usePrivy: () => PrivyHook } | null>(null);
+
+  useEffect(() => {
+    import("@privy-io/react-auth").then((mod) => {
+      setHookModule({ usePrivy: mod.usePrivy as unknown as () => PrivyHook });
+    }).catch(() => {});
+  }, []);
+
+  if (!hookModule) {
+    return (
+      <button
+        disabled
+        style={{
+          width: "100%", padding: "12px 16px", background: "#161625", border: "1px solid #1e1e35",
+          borderRadius: 9, color: "#4b5563", fontSize: 14, fontWeight: 600, cursor: "not-allowed",
+        }}
+      >
+        Loading sign-in...
+      </button>
+    );
+  }
+
+  return <PrivyLoginHooked hookModule={hookModule} onWalletResolved={onWalletResolved} disabled={disabled} />;
+}
+
+function PrivyLoginHooked({
+  hookModule,
+  onWalletResolved,
+  disabled,
+}: {
+  hookModule: { usePrivy: () => PrivyHook };
+  onWalletResolved: (address: string, email: string) => void;
+  disabled: boolean;
+}) {
+  const { ready, authenticated, user, login, logout } = hookModule.usePrivy();
+  const [resolved, setResolved] = useState(false);
+
+  useEffect(() => {
+    if (!ready || !authenticated || !user || resolved) return;
+
+    // Extract email from Privy user
+    const email = user.google?.email || user.email?.address || "";
+    // Extract wallet address from Privy-managed wallet
+    const walletAddress = user.wallet?.address || "";
+
+    if (walletAddress && email) {
+      setResolved(true);
+      onWalletResolved(walletAddress, email);
+    }
+  }, [ready, authenticated, user, resolved, onWalletResolved]);
+
+  if (!ready) {
+    return (
+      <button
+        disabled
+        style={{
+          width: "100%", padding: "12px 16px", background: "#161625", border: "1px solid #1e1e35",
+          borderRadius: 9, color: "#4b5563", fontSize: 14, fontWeight: 600, cursor: "not-allowed",
+        }}
+      >
+        Loading...
+      </button>
+    );
+  }
+
+  if (authenticated && user) {
+    const email = user.google?.email || user.email?.address || "your account";
+    const walletAddress = user.wallet?.address;
+
+    return (
+      <div style={{ width: "100%" }}>
+        <div style={{
+          background: "#0a150a", border: "1px solid #1a3a1a", borderRadius: 9,
+          padding: "12px 16px", marginBottom: 12,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+            <span style={{ fontSize: 13, color: "#10b981", fontWeight: 600 }}>Signed in as {email}</span>
+          </div>
+          {walletAddress && (
+            <div style={{ fontSize: 11, color: "#4b5563", fontFamily: "monospace", wordBreak: "break-all" }}>
+              Wallet: {walletAddress.slice(0, 10)}...{walletAddress.slice(-8)}
+            </div>
+          )}
+          {!walletAddress && (
+            <div style={{ fontSize: 11, color: "#f87171" }}>
+              Wallet not yet created. Please wait...
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => { setResolved(false); logout(); }}
+          style={{
+            background: "none", border: "none", color: "#4b5563", fontSize: 11,
+            cursor: "pointer", textDecoration: "underline", width: "100%", textAlign: "center",
+          }}
+        >
+          Use a different account
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={login}
+      disabled={disabled}
+      style={{
+        width: "100%", padding: "13px 16px", background: "#fff", color: "#111",
+        border: "none", borderRadius: 9, cursor: disabled ? "not-allowed" : "pointer",
+        fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center",
+        justifyContent: "center", gap: 10, opacity: disabled ? 0.5 : 1,
+        transition: "opacity 0.15s",
+      }}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Sign in with Google — no wallet needed
+    </button>
+  );
+}
+
 export default function ClaimPage() {
   const { id } = useParams<{ id: string }>();
   const [zap, setZap] = useState<ZapData | null>(null);
@@ -76,6 +246,8 @@ export default function ClaimPage() {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [claimResult, setClaimResult] = useState<{ amount: string; yieldEarned: string; protocolFee: string; total: string; apy: number } | null>(null);
+  const [privyEmail, setPrivyEmail] = useState<string | null>(null);
+  const [claimMode, setClaimMode] = useState<"privy" | "manual">(PRIVY_AVAILABLE ? "privy" : "manual");
 
   useEffect(() => {
     fetch(`/api/zap/${id}`)
@@ -83,6 +255,11 @@ export default function ClaimPage() {
       .then((data: ZapData) => { setZap(data); setLoading(false); })
       .catch(() => setLoading(false));
   }, [id]);
+
+  const handlePrivyWalletResolved = useCallback((walletAddress: string, email: string) => {
+    setAddress(walletAddress);
+    setPrivyEmail(email);
+  }, []);
 
   async function handleClaim() {
     if (!address.startsWith("0x") || address.length < 10) {
@@ -137,6 +314,11 @@ export default function ClaimPage() {
             <span style={{ color: "#10b981" }}>✓</span>
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6, letterSpacing: "-0.03em" }}>Transfer claimed</h2>
+          {privyEmail && (
+            <p style={{ color: "#10b981", fontSize: 13, marginBottom: 4 }}>
+              Claimed to your wallet via {privyEmail}
+            </p>
+          )}
           {claimResult ? (
             <>
               <div style={{ background: "#0a120a", border: "1px solid #1a3a1a", borderRadius: 10, padding: "18px 20px", margin: "20px 0" }}>
@@ -167,7 +349,7 @@ export default function ClaimPage() {
             <p style={{ color: "#6b7280", margin: "20px 0", fontSize: 14 }}>This transfer has already been claimed.</p>
           )}
           {txHash && (
-            <a href={`https://sepolia.starkscan.co/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://sepolia.voyager.online/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
               style={{ color: "#6366f1", fontSize: 13, display: "block", marginBottom: 20 }}>
               View transaction →
             </a>
@@ -227,21 +409,83 @@ export default function ClaimPage() {
                 </div>
               )}
 
-              <div style={{ marginBottom: 18 }}>
-                <label className="label">Your Starknet address</label>
-                <input className="input" type="text" placeholder="0x..." value={address}
-                  onChange={(e) => setAddress(e.target.value)} />
-                <div style={{ fontSize: 11, color: "#4b5563", marginTop: 6, fontWeight: 500 }}>
-                  No wallet?{" "}
-                  <a href="https://cartridge.gg" target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1" }}>
-                    Create one at cartridge.gg
-                  </a>
+              {/* Claim mode tabs - only show if Privy is available */}
+              {PRIVY_AVAILABLE && (
+                <div style={{ display: "flex", gap: 0, marginBottom: 18, background: "#161625", borderRadius: 9, border: "1px solid #1e1e35", overflow: "hidden" }}>
+                  <button
+                    onClick={() => setClaimMode("privy")}
+                    style={{
+                      flex: 1, padding: "10px 0", border: "none", cursor: "pointer",
+                      fontSize: 12, fontWeight: 600,
+                      background: claimMode === "privy" ? "#6366f1" : "transparent",
+                      color: claimMode === "privy" ? "#fff" : "#6b7280",
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                  >
+                    Social login
+                  </button>
+                  <button
+                    onClick={() => setClaimMode("manual")}
+                    style={{
+                      flex: 1, padding: "10px 0", border: "none", cursor: "pointer",
+                      fontSize: 12, fontWeight: 600,
+                      background: claimMode === "manual" ? "#6366f1" : "transparent",
+                      color: claimMode === "manual" ? "#fff" : "#6b7280",
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                  >
+                    Wallet address
+                  </button>
                 </div>
-              </div>
+              )}
 
-              <button className="btn-primary" onClick={handleClaim} disabled={claiming || !address}>
-                {claiming ? "Processing claim..." : `Claim ${zap.amount} ${zap.token} + yield`}
-              </button>
+              {/* Privy social login mode */}
+              {claimMode === "privy" && PRIVY_AVAILABLE && (
+                <div style={{ marginBottom: 18 }}>
+                  <PrivyLoginSection
+                    onWalletResolved={handlePrivyWalletResolved}
+                    disabled={claiming}
+                  />
+                  {privyEmail && address && (
+                    <div style={{ marginTop: 14 }}>
+                      <button className="btn-primary" onClick={handleClaim} disabled={claiming || !address}>
+                        {claiming ? "Processing claim..." : `Claim ${zap.amount} ${zap.token} + yield`}
+                      </button>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: "#4b5563", marginTop: 10, textAlign: "center", fontWeight: 500 }}>
+                    Sign in to claim instantly. No wallet app or gas fees needed.
+                  </div>
+                </div>
+              )}
+
+              {/* Manual address mode */}
+              {claimMode === "manual" && (
+                <div style={{ marginBottom: 18 }}>
+                  <label className="label">Your Starknet address</label>
+                  <input className="input" type="text" placeholder="0x..." value={address}
+                    onChange={(e) => { setAddress(e.target.value); setPrivyEmail(null); }} />
+                  <div style={{ fontSize: 11, color: "#4b5563", marginTop: 6, fontWeight: 500 }}>
+                    No wallet?{" "}
+                    {PRIVY_AVAILABLE ? (
+                      <button
+                        onClick={() => setClaimMode("privy")}
+                        style={{ background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontSize: 11, fontWeight: 500, padding: 0 }}
+                      >
+                        Sign in with Google instead
+                      </button>
+                    ) : (
+                      <a href="https://cartridge.gg" target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1" }}>
+                        Create one at cartridge.gg
+                      </a>
+                    )}
+                  </div>
+                  <button className="btn-primary" onClick={handleClaim} disabled={claiming || !address}
+                    style={{ marginTop: 14 }}>
+                    {claiming ? "Processing claim..." : `Claim ${zap.amount} ${zap.token} + yield`}
+                  </button>
+                </div>
+              )}
 
               <div style={{ background: "#0d0d1f", border: "1px solid #1e1e35", borderRadius: 8, padding: "10px 14px", marginTop: 14 }}>
                 <div style={{ fontSize: 11, color: "#4b5563", marginBottom: 4 }}>

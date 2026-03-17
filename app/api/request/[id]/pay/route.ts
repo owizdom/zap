@@ -12,7 +12,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const request = getRequest(id);
+    const request = await getRequest(id);
 
     if (!request) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
@@ -31,7 +31,7 @@ export async function POST(
     const claimSecret = crypto.randomBytes(32).toString("hex");
     const amount = formatToken(BigInt(request.amount_raw), request.token);
 
-    createZap({
+    await createZap({
       id: zapId,
       from_email: request.to_email, // payer is the sender
       to_email: request.from_email, // requester is the recipient
@@ -46,7 +46,7 @@ export async function POST(
       yield_apy: apy,
     });
 
-    markRequestPaid(id, zapId);
+    await markRequestPaid(id, zapId);
 
     // Notify requester they can now claim
     await sendClaimEmail({

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const id = uuid();
     const amountRaw = parseToken(amount, normalizedToken).toString();
 
-    createSubscription({
+    await createSubscription({
       id,
       merchant_email: merchantEmail,
       amount_raw: amountRaw,
@@ -57,5 +57,5 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json(getAllSubscriptions());
+  return NextResponse.json(await getAllSubscriptions());
 }

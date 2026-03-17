@@ -421,7 +421,7 @@ export default function DashboardPage() {
                             </>
                           )}
                           {zap.txHash && (
-                            <a href={`https://sepolia.starkscan.co/tx/${zap.txHash}`} target="_blank" rel="noopener noreferrer"
+                            <a href={`https://sepolia.voyager.online/tx/${zap.txHash}`} target="_blank" rel="noopener noreferrer"
                               className="btn-secondary" style={{ fontSize: 12, color: "#6366f1" }}>
                               Tx →
                             </a>

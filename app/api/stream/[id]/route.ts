@@ -4,7 +4,7 @@ import { formatToken } from "@/lib/yield";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const stream = getStream(id);
+  const stream = await getStream(id);
   if (!stream) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const now = Date.now();

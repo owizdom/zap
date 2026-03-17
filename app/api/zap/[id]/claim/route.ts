@@ -9,7 +9,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const zap = getZap(id);
+    const zap = await getZap(id);
 
     if (!zap) {
       return NextResponse.json({ error: "Zap not found" }, { status: 404 });
@@ -42,7 +42,7 @@ export async function POST(
     }
 
     // Mark claimed first to prevent double-claim race
-    updateZapStatus(id, "claimed", {
+    await updateZapStatus(id, "claimed", {
       recipient_address: recipientAddress,
       claimed_at: Date.now(),
       protocol_fee_raw: protocolFee.toString(),
@@ -53,7 +53,7 @@ export async function POST(
       txHash = await releaseToRecipient(recipientAddress, totalStr, zap.token);
     } catch (err) {
       // Revert if transfer fails
-      updateZapStatus(id, "funded");
+      await updateZapStatus(id, "funded");
       console.error("[claim] transfer failed:", err);
       return NextResponse.json({ error: "Transfer failed — please try again" }, { status: 500 });
     }

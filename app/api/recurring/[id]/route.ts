@@ -6,10 +6,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const rec = getRecurring(id);
+  const rec = await getRecurring(id);
   if (!rec) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  cancelRecurring(id);
+  await cancelRecurring(id);
   return NextResponse.json({ success: true });
 }

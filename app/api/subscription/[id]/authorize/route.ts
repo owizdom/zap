@@ -9,13 +9,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "subscriberEmail required" }, { status: 400 });
     }
 
-    const sub = getSubscription(id);
+    const sub = await getSubscription(id);
     if (!sub) return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
     if (sub.active) return NextResponse.json({ error: "Already authorized" }, { status: 400 });
 
     const now = Date.now();
     const nextPullAt = now + sub.interval_days * 86400 * 1000;
-    authorizeSubscription(id, subscriberEmail, now, nextPullAt);
+    await authorizeSubscription(id, subscriberEmail, now, nextPullAt);
 
     return NextResponse.json({ success: true, nextPullAt });
   } catch (err) {

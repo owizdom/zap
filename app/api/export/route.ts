@@ -1,25 +1,9 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getAllZaps } from "@/lib/db";
 import { calcYield, calcProtocolFee, formatToken } from "@/lib/yield";
 
 export async function GET() {
-  const db = getDb();
-  const zaps = db.prepare("SELECT * FROM zaps ORDER BY created_at DESC").all() as Array<{
-    id: string;
-    from_email: string;
-    to_email: string;
-    amount_raw: string;
-    token: string;
-    tx_hash: string | null;
-    status: string;
-    created_at: number;
-    claimed_at: number | null;
-    recipient_address: string | null;
-    message: string | null;
-    type: string;
-    yield_apy: number | null;
-    protocol_fee_raw: string | null;
-  }>;
+  const zaps = await getAllZaps();
 
   const rows = zaps.map((z) => {
     const apy = z.yield_apy ?? 0.05;

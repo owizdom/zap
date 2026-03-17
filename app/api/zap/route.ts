@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const claimSecret = crypto.randomBytes(32).toString("hex");
     const amountRaw = parseToken(amount, normalizedToken).toString();
 
-    const zap = createZap({
+    const zap = await createZap({
       id,
       from_email: fromEmail,
       to_email: toEmail,

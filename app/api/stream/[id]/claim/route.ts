@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Invalid recipient address" }, { status: 400 });
     }
 
-    const stream = getStream(id);
+    const stream = await getStream(id);
     if (!stream) return NextResponse.json({ error: "Stream not found" }, { status: 404 });
     if (!stream.active) return NextResponse.json({ error: "Stream is no longer active" }, { status: 400 });
 
@@ -40,10 +40,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const txHash = await releaseToRecipient(recipientAddress, claimAmount, stream.token);
 
     const newClaimedTotal = (claimedSoFar + actualRaw).toString();
-    updateStreamClaimed(id, now, newClaimedTotal);
+    await updateStreamClaimed(id, now, newClaimedTotal);
 
     const isDone = claimedSoFar + actualRaw >= totalRaw || now >= stream.end_at;
-    if (isDone) deactivateStream(id);
+    if (isDone) await deactivateStream(id);
 
     return NextResponse.json({
       success: true,

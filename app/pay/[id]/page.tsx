@@ -106,7 +106,7 @@ export default function PayPage() {
             <strong style={{ color: "#f0f0f4" }}>{request.fromEmail}</strong> will receive a claim email with <strong style={{ color: "#10b981" }}>{request.amount} {request.token}</strong> + yield.
           </p>
           {txHash && (
-            <a href={`https://sepolia.starkscan.co/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://sepolia.voyager.online/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
               style={{ color: "#6366f1", fontSize: 13, display: "block", marginBottom: 20 }}>
               View transaction →
             </a>
