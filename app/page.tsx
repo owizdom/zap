@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveStats } from "./components/LiveStats";
 
 export default function Home() {
   return (
@@ -52,20 +53,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats */}
-      <section style={{ display: "flex", justifyContent: "center", gap: 16, padding: "0 24px 80px", flexWrap: "wrap" }}>
-        {[
-          { label: "Real staking APY",    value: "Live yield" },
-          { label: "Tokens supported",    value: "STRK · ETH · USDC" },
-          { label: "Wallet to receive",   value: "None needed" },
-          { label: "Time to send",        value: "< 30 sec" },
-        ].map((s) => (
-          <div key={s.label} className="card" style={{ padding: "22px 28px", textAlign: "center", minWidth: 170 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#6366f1", letterSpacing: "-0.03em" }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 5, fontWeight: 500 }}>{s.label}</div>
-          </div>
-        ))}
-      </section>
+      {/* Live Stats + Activity */}
+      <LiveStats />
 
       {/* Features grid */}
       <section style={{ padding: "0 24px 80px", maxWidth: 900, margin: "0 auto", width: "100%" }}>
