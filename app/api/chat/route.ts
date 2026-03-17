@@ -13,6 +13,12 @@ import {
 
 const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  return `${local.slice(0, 3)}***@${domain}`;
+}
+
 async function gatherContext() {
   const [balanceSTRK, balanceETH, balanceUSDC, apy, position, activeTokens, zaps] =
     await Promise.all([
@@ -41,7 +47,7 @@ async function gatherContext() {
       totalYield += parseFloat(formatToken(yieldEarned, z.token));
     }
     counts[z.status as keyof typeof counts]++;
-    return `  - ${z.from_email} → ${z.to_email}: ${formatToken(BigInt(z.amount_raw), z.token)} ${z.token} (${z.status})${z.message ? ` "${z.message}"` : ""} [${new Date(z.created_at).toLocaleDateString()}]`;
+    return `  - ${maskEmail(z.from_email)} → ${maskEmail(z.to_email)}: ${formatToken(BigInt(z.amount_raw), z.token)} ${z.token} (${z.status}) [${new Date(z.created_at).toLocaleDateString()}]`;
   });
 
   return `
