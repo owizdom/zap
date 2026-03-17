@@ -9,7 +9,7 @@ interface Stats {
   activeStreams: number;
   activeSubscriptions: number;
   activeRecurring: number;
-  staking: { staked: string; rewards: string; apy: string; validator: string } | null;
+  staking: { staked: string; rewards: string; apy: string; validator: string | { name: string; address: string } } | null;
   recent: {
     from: string; to: string; amount: string; token: string;
     status: string; timestamp: number; ago: string; txHash: string | null;
@@ -115,7 +115,7 @@ export function LiveStats() {
               </div>
               <div>
                 <div style={{ fontSize: 11, color: "#4b5563", fontWeight: 600, marginBottom: 2 }}>Validator</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#9ca3af" }}>{stats.staking.validator}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#9ca3af" }}>{typeof stats.staking.validator === "object" ? stats.staking.validator.name : stats.staking.validator}</div>
               </div>
             </div>
           </div>
