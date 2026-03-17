@@ -37,7 +37,8 @@ You have access to real on-chain data through your tools. Always use tools to ge
         parameters: z.object({
           token: z.enum(["STRK", "ETH", "USDC"]).describe("Token symbol"),
         }),
-        execute: async ({ token }: { token: string }) => {
+        execute: async (params: { token?: string } | null) => {
+          const token = params?.token || "STRK";
           const balance = await getEscrowBalance(token);
           return { balance, token };
         },
@@ -89,9 +90,9 @@ You have access to real on-chain data through your tools. Always use tools to ge
         parameters: z.object({
           limit: z.number().describe("Max number of transfers to return"),
         }),
-        execute: async ({ limit }: { limit: number }) => {
+        execute: async (params: { limit?: number } | null) => {
           const zaps = await getAllZaps();
-          const count = limit || 10;
+          const count = params?.limit || 10;
           return zaps.slice(0, count).map((z) => {
             const apy = z.yield_apy ?? 0.05;
             const yieldGross = z.status === "claimed" ? 0n : calcYield(z.amount_raw, z.created_at, apy);
@@ -206,7 +207,9 @@ You have access to real on-chain data through your tools. Always use tools to ge
           amount: z.number().describe("Amount of tokens"),
           days: z.number().describe("Number of days to estimate yield for"),
         }),
-        execute: async ({ amount, days }: { amount: number; days: number }) => {
+        execute: async (params: { amount?: number; days?: number } | null) => {
+          const amount = params?.amount || 100;
+          const days = params?.days || 30;
           const apy = await getLiveApy();
           const yieldEarned = amount * apy * (days / 365);
           return {
