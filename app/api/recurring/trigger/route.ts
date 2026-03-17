@@ -43,6 +43,7 @@ export async function POST() {
           amount,
           token: rec.token,
           zapId,
+          claimSecret,
           message: rec.message,
           apy,
         });

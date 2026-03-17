@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 interface ZapData {
@@ -302,7 +302,9 @@ function ProjectedYield({ amount, apy, createdAt, lockedUntil, token }: { amount
 
 export default function ClaimPage() {
   const { id } = useParams<{ id: string }>();
-  const [zap, setZap] = useState<ZapData | null>(null);
+  const searchParams = useSearchParams();
+  const claimSecret = searchParams.get("s") || "";
+  const [zap, setZap] = useState<(ZapData & { canClaim?: boolean }) | null>(null);
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -314,11 +316,12 @@ export default function ClaimPage() {
   const [claimMode, setClaimMode] = useState<"privy" | "manual">(PRIVY_AVAILABLE ? "privy" : "manual");
 
   useEffect(() => {
-    fetch(`/api/zap/${id}`)
+    const url = claimSecret ? `/api/zap/${id}?s=${claimSecret}` : `/api/zap/${id}`;
+    fetch(url)
       .then((r) => r.json())
-      .then((data: ZapData) => { setZap(data); setLoading(false); })
+      .then((data: ZapData & { canClaim?: boolean }) => { setZap(data); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [id]);
+  }, [id, claimSecret]);
 
   const handlePrivyWalletResolved = useCallback((walletAddress: string, email: string) => {
     setAddress(walletAddress);
@@ -336,7 +339,7 @@ export default function ClaimPage() {
       const res = await fetch(`/api/zap/${id}/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientAddress: address }),
+        body: JSON.stringify({ recipientAddress: address, secret: claimSecret }),
       });
       const data = await res.json() as { success?: boolean; txHash?: string; error?: string; amount: string; yieldEarned: string; protocolFee: string; total: string; apy: number };
       if (!res.ok) throw new Error(data.error || "Claim failed");
@@ -492,8 +495,18 @@ export default function ClaimPage() {
                 </div>
               )}
 
-              {/* Claim mode tabs - only show if Privy is available */}
-              {PRIVY_AVAILABLE && (
+              {/* Not authorized — no claim secret */}
+              {!zap.canClaim && (
+                <div style={{ background: "#0d0d1f", border: "1px solid #1e1e35", borderRadius: 10, padding: "20px", textAlign: "center", marginBottom: 18 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f4", marginBottom: 6 }}>This transfer is for you?</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
+                    Check your email for the claim link from Zapp. Only the recipient can claim this transfer.
+                  </div>
+                </div>
+              )}
+
+              {/* Claim mode tabs - only show if authorized AND Privy is available */}
+              {zap.canClaim && PRIVY_AVAILABLE && (
                 <div style={{ display: "flex", gap: 0, marginBottom: 18, background: "#161625", borderRadius: 9, border: "1px solid #1e1e35", overflow: "hidden" }}>
                   <button
                     onClick={() => setClaimMode("privy")}
@@ -523,7 +536,7 @@ export default function ClaimPage() {
               )}
 
               {/* Privy social login mode */}
-              {claimMode === "privy" && PRIVY_AVAILABLE && (
+              {zap.canClaim && claimMode === "privy" && PRIVY_AVAILABLE && (
                 <div style={{ marginBottom: 18 }}>
                   <PrivyLoginSection
                     onWalletResolved={handlePrivyWalletResolved}
@@ -543,7 +556,7 @@ export default function ClaimPage() {
               )}
 
               {/* Manual address mode */}
-              {claimMode === "manual" && (
+              {zap.canClaim && claimMode === "manual" && (
                 <div style={{ marginBottom: 18 }}>
                   <label className="label">Your Starknet address</label>
                   <input className="input" type="text" placeholder="0x..." value={address}
@@ -576,7 +589,7 @@ export default function ClaimPage() {
                 </div>
               </div>
 
-              <ResendButton zapId={id} />
+              {zap.canClaim && <ResendButton zapId={id} />}
             </div>
           </div>
 

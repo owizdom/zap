@@ -25,7 +25,10 @@ export async function POST(
       return NextResponse.json({ error: `This transfer is locked until ${unlockDate}. Yield is accruing — check back then.` }, { status: 400 });
     }
 
-    const { recipientAddress } = (await req.json()) as { recipientAddress: string };
+    const { recipientAddress, secret } = (await req.json()) as { recipientAddress: string; secret?: string };
+    if (!secret || secret !== zap.claim_secret) {
+      return NextResponse.json({ error: "Unauthorized — invalid claim link" }, { status: 403 });
+    }
     if (!recipientAddress || !recipientAddress.startsWith("0x")) {
       return NextResponse.json({ error: "Invalid recipient address" }, { status: 400 });
     }

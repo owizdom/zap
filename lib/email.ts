@@ -12,6 +12,7 @@ export async function sendClaimEmail({
   amount,
   token,
   zapId,
+  claimSecret,
   message,
   apy,
 }: {
@@ -20,10 +21,11 @@ export async function sendClaimEmail({
   amount: string;
   token: string;
   zapId: string;
+  claimSecret: string;
   message?: string | null;
   apy?: number;
 }): Promise<void> {
-  const claimUrl = `${APP_URL}/claim/${zapId}`;
+  const claimUrl = `${APP_URL}/claim/${zapId}?s=${claimSecret}`;
   const apyDisplay = apy ? `${(apy * 100).toFixed(1)}%` : "5%";
 
   await getResend().emails.send({

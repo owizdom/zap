@@ -55,6 +55,7 @@ export async function POST(
       amount,
       token: request.token,
       zapId,
+      claimSecret,
       message: request.message,
       apy,
     });

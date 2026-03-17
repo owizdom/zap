@@ -27,6 +27,7 @@ export async function POST(
       amount: formatToken(BigInt(zap.amount_raw), zap.token),
       token: zap.token,
       zapId: zap.id,
+      claimSecret: zap.claim_secret,
       message: zap.message,
       apy: zap.yield_apy,
     });

@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
       amount,
       token: normalizedToken,
       zapId: id,
+      claimSecret,
       message,
       apy,
     });

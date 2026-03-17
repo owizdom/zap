@@ -10,7 +10,7 @@ function maskEmail(email: string): string {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -19,6 +19,10 @@ export async function GET(
   if (!zap) {
     return NextResponse.json({ error: "Zap not found" }, { status: 404 });
   }
+
+  // Check if caller has the claim secret (from the email link ?s=...)
+  const secret = req.nextUrl.searchParams.get("s");
+  const authorized = secret === zap.claim_secret;
 
   const apy = zap.yield_apy ?? 0.05;
   const yieldEarned = zap.status === "claimed" ? 0n : calcYield(zap.amount_raw, zap.created_at, apy);
@@ -43,5 +47,7 @@ export async function GET(
     type: zap.type,
     groupId: zap.group_id,
     lockedUntil: zap.locked_until ?? null,
+    // Only authorized recipients can see the claim form
+    canClaim: authorized,
   });
 }
