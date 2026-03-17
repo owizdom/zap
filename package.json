@@ -18,7 +18,7 @@
     "next-auth": "^4.24.13",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "resend": "^6.9.3",
+    "nodemailer": "^7.0.7",
     "starknet": "^9.2.1",
     "starkzap": "^1.0.0",
     "uuid": "^13.0.0"
@@ -27,6 +27,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",

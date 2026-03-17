@@ -197,7 +197,7 @@ Every module listed here is used in production code, verified in source.
 | Smart Contract | Cairo (Scarb), tested with snforge |
 | Wallets | Cartridge Controller (gasless), ArgentX/Braavos, Privy (social login) |
 | Database | Turso (cloud SQLite via libSQL) |
-| Email | Resend (transactional) |
+| Email | Nodemailer (Gmail SMTP) |
 | Auth | NextAuth.js (Google OAuth) |
 | AI Integration | MCP server (30 tools) |
 
@@ -224,8 +224,9 @@ npm run dev
 | `NEXT_PUBLIC_NETWORK` | Yes | `sepolia` or `mainnet` |
 | `TURSO_DATABASE_URL` | Yes | Turso database URL (or `file:./zap.db` for local) |
 | `TURSO_AUTH_TOKEN` | Prod | Turso auth token (not needed for local file DB) |
-| `RESEND_API_KEY` | Yes | Resend API key for claim emails |
-| `RESEND_FROM` | Yes | Sender address (e.g. `Zapp <noreply@yourdomain.com>`) |
+| `GMAIL_USER` | Yes | Gmail address for sending emails |
+| `GMAIL_APP_PASSWORD` | Yes | Gmail app password (requires 2FA) |
+| `EMAIL_FROM` | No | Sender display (defaults to `Zapp <GMAIL_USER>`) |
 | `NEXT_PUBLIC_APP_URL` | Yes | Deployment URL (used in claim email links) |
 | `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |

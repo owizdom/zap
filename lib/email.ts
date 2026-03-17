@@ -1,8 +1,14 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-function getResend() { return new Resend(process.env.RESEND_API_KEY ?? ""); }
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const FROM = process.env.RESEND_FROM || "zap@resend.dev";
+const FROM = process.env.EMAIL_FROM || `Zapp <${process.env.GMAIL_USER}>`;
 
 // ─── Claim email ─────────────────────────────────────────────────────────────
 
@@ -28,7 +34,7 @@ export async function sendClaimEmail({
   const claimUrl = `${APP_URL}/claim/${zapId}?s=${claimSecret}`;
   const apyDisplay = apy ? `${(apy * 100).toFixed(1)}%` : "5%";
 
-  await getResend().emails.send({
+  await transporter.sendMail({
     from: FROM,
     to: toEmail,
     subject: `${fromEmail} sent you ${amount} ${token} — earning ${apyDisplay} APY while you wait`,
@@ -100,7 +106,7 @@ export async function sendRequestEmail({
 }): Promise<void> {
   const payUrl = `${APP_URL}/pay/${requestId}`;
 
-  await getResend().emails.send({
+  await transporter.sendMail({
     from: FROM,
     to: toEmail,
     subject: `${fromEmail} is requesting ${amount} ${token} from you`,
@@ -173,7 +179,7 @@ export async function sendStreamEmail({
 }): Promise<void> {
   const dashUrl = `${APP_URL}/dashboard`;
 
-  await getResend().emails.send({
+  await transporter.sendMail({
     from: FROM,
     to: toEmail,
     subject: `${fromEmail} started a salary stream — ${total} ${token} over ${durationDays} days`,
@@ -237,7 +243,7 @@ export async function sendSubscriptionEmail({
 }): Promise<void> {
   const authUrl = `${APP_URL}/subscribe/${subscriptionId}`;
 
-  await getResend().emails.send({
+  await transporter.sendMail({
     from: FROM,
     to: toEmail,
     subject: `${merchantEmail} is requesting a subscription — ${amount} ${token} every ${intervalDays} days`,
@@ -293,7 +299,7 @@ export async function sendRequestPaidEmail({
 }): Promise<void> {
   const claimUrl = `${APP_URL}/claim/${zapId}`;
 
-  await getResend().emails.send({
+  await transporter.sendMail({
     from: FROM,
     to: toEmail,
     subject: `${fromEmail} paid your request — ${amount} ${token} ready to claim`,
