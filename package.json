@@ -9,16 +9,19 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.43",
+    "@ai-sdk/react": "^3.0.118",
     "@cartridge/controller": "^0.13.9",
     "@libsql/client": "^0.17.0",
     "@privy-io/react-auth": "^3.17.0",
     "@privy-io/server-auth": "^1.32.5",
+    "ai": "^6.0.116",
     "better-sqlite3": "^12.6.2",
     "next": "16.1.6",
     "next-auth": "^4.24.13",
+    "nodemailer": "^7.0.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "nodemailer": "^7.0.7",
     "starknet": "^9.2.1",
     "starkzap": "^1.0.0",
     "uuid": "^13.0.0"
