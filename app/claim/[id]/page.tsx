@@ -18,6 +18,7 @@ interface ZapData {
   createdAt: number;
   claimedAt: number | null;
   message: string | null;
+  lockedUntil: number | null;
 }
 
 // Privy types - conditionally available
@@ -236,6 +237,69 @@ function PrivyLoginHooked({
   );
 }
 
+function LockCountdown({ lockedUntil }: { lockedUntil: number }) {
+  const [timeLeft, setTimeLeft] = useState("");
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    function calc() {
+      const now = Date.now();
+      const remaining = Math.max(0, lockedUntil - now);
+      const days = Math.floor(remaining / 86400000);
+      const hours = Math.floor((remaining % 86400000) / 3600000);
+      const mins = Math.floor((remaining % 3600000) / 60000);
+      if (remaining <= 0) {
+        setTimeLeft("Unlocked!");
+        setProgress(100);
+      } else if (days > 0) {
+        setTimeLeft(`${days}d ${hours}h ${mins}m`);
+      } else {
+        setTimeLeft(`${hours}h ${mins}m`);
+      }
+      // Simple progress: assume max lock is 90 days
+      const elapsed = now - (lockedUntil - 90 * 86400000);
+      setProgress(Math.min(100, Math.max(0, (elapsed / (90 * 86400000)) * 100)));
+    }
+    calc();
+    const t = setInterval(calc, 10000);
+    return () => clearInterval(t);
+  }, [lockedUntil]);
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+        <span style={{ fontSize: 22, fontWeight: 800, color: "#8b5cf6", letterSpacing: "-0.03em" }}>{timeLeft}</span>
+        <span style={{ fontSize: 11, color: "#4b5563" }}>
+          Unlocks {new Date(lockedUntil).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+        </span>
+      </div>
+      <div style={{ height: 6, background: "#1e1e35", borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ height: "100%", background: "linear-gradient(90deg, #6366f1, #8b5cf6)", borderRadius: 3, width: `${progress}%`, transition: "width 0.5s" }} />
+      </div>
+    </div>
+  );
+}
+
+function ProjectedYield({ amount, apy, createdAt, lockedUntil, token }: { amount: number; apy: number; createdAt: number; lockedUntil: number; token: string }) {
+  const lockDurationSec = (lockedUntil - createdAt) / 1000;
+  const grossYield = amount * apy * (lockDurationSec / (365 * 24 * 3600));
+  const netYield = grossYield * 0.9;
+  const totalAtUnlock = amount + netYield;
+
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#10b981", letterSpacing: "-0.03em" }}>{totalAtUnlock.toFixed(4)} {token}</div>
+        <div style={{ fontSize: 11, color: "#4b5563", marginTop: 2 }}>{amount} principal + {netYield.toFixed(4)} yield</div>
+      </div>
+      <div style={{ textAlign: "right" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#10b981" }}>+{netYield.toFixed(4)}</div>
+        <div style={{ fontSize: 10, color: "#4b5563" }}>net yield</div>
+      </div>
+    </div>
+  );
+}
+
 export default function ClaimPage() {
   const { id } = useParams<{ id: string }>();
   const [zap, setZap] = useState<ZapData | null>(null);
@@ -361,6 +425,7 @@ export default function ClaimPage() {
   }
 
   const apyPct = ((zap.apy ?? 0.05) * 100).toFixed(1);
+  const isLocked = !!(zap.lockedUntil && Date.now() < zap.lockedUntil);
 
   return (
     <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -409,6 +474,24 @@ export default function ClaimPage() {
                 </div>
               )}
 
+              {/* Yield lock countdown */}
+              {zap.lockedUntil && Date.now() < zap.lockedUntil && (
+                <div style={{ background: "#0d0a1f", border: "1px solid #2d1f6b", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 16 }}>&#x1f512;</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#8b5cf6", textTransform: "uppercase", letterSpacing: "0.04em" }}>Yield-locked transfer</span>
+                  </div>
+                  <LockCountdown lockedUntil={zap.lockedUntil} />
+                  <div style={{ marginTop: 14, background: "#0a0a15", borderRadius: 8, padding: "12px 14px", border: "1px solid #1e1e35" }}>
+                    <div style={{ fontSize: 11, color: "#4b5563", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>Projected value at unlock</div>
+                    <ProjectedYield amount={parseFloat(zap.amount)} apy={zap.apy} createdAt={zap.createdAt} lockedUntil={zap.lockedUntil} token={zap.token} />
+                  </div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginTop: 10, lineHeight: 1.6 }}>
+                    This transfer is earning {apyPct}% APY while locked. You&apos;ll be able to claim the full amount plus all accrued yield when the lock expires.
+                  </div>
+                </div>
+              )}
+
               {/* Claim mode tabs - only show if Privy is available */}
               {PRIVY_AVAILABLE && (
                 <div style={{ display: "flex", gap: 0, marginBottom: 18, background: "#161625", borderRadius: 9, border: "1px solid #1e1e35", overflow: "hidden" }}>
@@ -448,13 +531,13 @@ export default function ClaimPage() {
                   />
                   {privyEmail && address && (
                     <div style={{ marginTop: 14 }}>
-                      <button className="btn-primary" onClick={handleClaim} disabled={claiming || !address}>
-                        {claiming ? "Processing claim..." : `Claim ${zap.amount} ${zap.token} + yield`}
+                      <button className="btn-primary" onClick={handleClaim} disabled={claiming || !address || isLocked}>
+                        {isLocked ? `Locked — unlocks ${new Date(zap.lockedUntil!).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : claiming ? "Processing claim..." : `Claim ${zap.amount} ${zap.token} + yield`}
                       </button>
                     </div>
                   )}
                   <div style={{ fontSize: 11, color: "#4b5563", marginTop: 10, textAlign: "center", fontWeight: 500 }}>
-                    Sign in to claim instantly. No wallet app or gas fees needed.
+                    {isLocked ? "This transfer is locked and earning yield. Come back when it unlocks." : "Sign in to claim instantly. No wallet app or gas fees needed."}
                   </div>
                 </div>
               )}
@@ -480,9 +563,9 @@ export default function ClaimPage() {
                       </a>
                     )}
                   </div>
-                  <button className="btn-primary" onClick={handleClaim} disabled={claiming || !address}
+                  <button className="btn-primary" onClick={handleClaim} disabled={claiming || !address || isLocked}
                     style={{ marginTop: 14 }}>
-                    {claiming ? "Processing claim..." : `Claim ${zap.amount} ${zap.token} + yield`}
+                    {isLocked ? `Locked — unlocks ${new Date(zap.lockedUntil!).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : claiming ? "Processing claim..." : `Claim ${zap.amount} ${zap.token} + yield`}
                   </button>
                 </div>
               )}

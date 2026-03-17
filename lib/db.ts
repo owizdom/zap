@@ -37,7 +37,8 @@ async function ensureInit(): Promise<Client> {
               type              TEXT NOT NULL DEFAULT 'send',
               group_id          TEXT,
               protocol_fee_raw  TEXT,
-              yield_apy         REAL DEFAULT 0.05
+              yield_apy         REAL DEFAULT 0.05,
+              locked_until      INTEGER
             )`,
             `CREATE TABLE IF NOT EXISTS requests (
               id           TEXT PRIMARY KEY,
@@ -101,6 +102,8 @@ async function ensureInit(): Promise<Client> {
           ],
           "write"
         );
+        // Migrations: add columns that may not exist yet
+        await db.execute("ALTER TABLE zaps ADD COLUMN locked_until INTEGER").catch(() => {});
       } catch (err) {
         _initPromise = null;
         throw err;
@@ -130,6 +133,7 @@ export interface Zap {
   group_id: string | null;
   protocol_fee_raw: string | null;
   yield_apy: number;
+  locked_until: number | null;
 }
 
 export interface ZapRequest {
@@ -198,12 +202,12 @@ export interface Contact {
 // ─── Zaps ────────────────────────────────────────────────────────────────────
 
 export async function createZap(
-  zap: Omit<Zap, "status" | "claimed_at" | "recipient_address" | "protocol_fee_raw"> & { type?: string }
+  zap: Omit<Zap, "status" | "claimed_at" | "recipient_address" | "protocol_fee_raw" | "locked_until"> & { type?: string; locked_until?: number | null }
 ): Promise<Zap> {
   const db = await ensureInit();
   await db.execute({
-    sql: `INSERT INTO zaps (id, from_email, to_email, amount_raw, token, claim_secret, tx_hash, status, created_at, message, type, group_id, yield_apy)
-          VALUES (:id, :from_email, :to_email, :amount_raw, :token, :claim_secret, :tx_hash, 'pending', :created_at, :message, :type, :group_id, :yield_apy)`,
+    sql: `INSERT INTO zaps (id, from_email, to_email, amount_raw, token, claim_secret, tx_hash, status, created_at, message, type, group_id, yield_apy, locked_until)
+          VALUES (:id, :from_email, :to_email, :amount_raw, :token, :claim_secret, :tx_hash, 'pending', :created_at, :message, :type, :group_id, :yield_apy, :locked_until)`,
     args: {
       id: zap.id,
       from_email: zap.from_email,
@@ -217,6 +221,7 @@ export async function createZap(
       type: zap.type ?? "send",
       group_id: zap.group_id ?? null,
       yield_apy: zap.yield_apy ?? 0.05,
+      locked_until: zap.locked_until ?? null,
     },
   });
   await upsertContact(zap.from_email, zap.to_email);

@@ -20,6 +20,10 @@ export async function POST(
     if (zap.status === "refunded") {
       return NextResponse.json({ error: "This zap has been refunded" }, { status: 400 });
     }
+    if (zap.locked_until && Date.now() < zap.locked_until) {
+      const unlockDate = new Date(zap.locked_until).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      return NextResponse.json({ error: `This transfer is locked until ${unlockDate}. Yield is accruing — check back then.` }, { status: 400 });
+    }
 
     const { recipientAddress } = (await req.json()) as { recipientAddress: string };
     if (!recipientAddress || !recipientAddress.startsWith("0x")) {

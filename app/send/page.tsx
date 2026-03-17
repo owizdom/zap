@@ -102,6 +102,8 @@ export default function SendPage() {
   const [isSplit, setIsSplit] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [intervalDays, setIntervalDays] = useState(30);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockDays, setLockDays] = useState(30);
   const [aiInput, setAiInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [zapId, setZapId] = useState<string | null>(null);
@@ -196,6 +198,7 @@ export default function SendPage() {
           message: form.message || null,
           txHash: onChainTxHash,
           type: isSplit && splitRecipients.length > 1 ? "split" : "send",
+          lockDays: isLocked ? lockDays : undefined,
         }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error: string }).error);
@@ -584,6 +587,10 @@ export default function SendPage() {
                     style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "1px solid", borderColor: isRecurring ? "#10b981" : "#1e1e35", background: isRecurring ? "#0a150a" : "transparent", color: isRecurring ? "#10b981" : "#6b7280" }}>
                     {isRecurring ? "✓ Recurring" : "Recurring"}
                   </button>
+                  <button type="button" onClick={() => setIsLocked((v) => !v)}
+                    style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "1px solid", borderColor: isLocked ? "#8b5cf6" : "#1e1e35", background: isLocked ? "#0d0a1f" : "transparent", color: isLocked ? "#8b5cf6" : "#6b7280" }}>
+                    {isLocked ? "✓ Yield lock" : "Yield lock"}
+                  </button>
                 </div>
 
                 {isRecurring && (
@@ -596,6 +603,23 @@ export default function SendPage() {
                           {d}d
                         </button>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {isLocked && (
+                  <div>
+                    <label className="label">Lock duration</label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {[7, 14, 30, 60, 90].map((d) => (
+                        <button key={d} type="button" onClick={() => setLockDays(d)}
+                          style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "1px solid", borderColor: lockDays === d ? "#8b5cf6" : "#1e1e35", background: lockDays === d ? "#0d0a1f" : "transparent", color: lockDays === d ? "#8b5cf6" : "#6b7280" }}>
+                          {d}d
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#8b5cf6", marginTop: 6, fontWeight: 500 }}>
+                      Recipient can claim after {lockDays} days. Estimated yield: +{(parseFloat(form.amount || "0") * 0.0495 * lockDays / 365 * 0.9).toFixed(4)} {form.token}
                     </div>
                   </div>
                 )}

@@ -35,5 +35,6 @@ export async function GET(
     message: zap.message,
     type: zap.type,
     groupId: zap.group_id,
+    lockedUntil: zap.locked_until ?? null,
   });
 }

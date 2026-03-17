@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
       txHash?: string;
       type?: string;
       groupId?: string;
+      lockDays?: number;
     };
 
     if (!fromEmail || !toEmail || !amount) {
@@ -46,6 +47,10 @@ export async function POST(req: NextRequest) {
     const id = uuid();
     const claimSecret = crypto.randomBytes(32).toString("hex");
     const amountRaw = parseToken(amount, normalizedToken).toString();
+    const now = Date.now();
+    const lockedUntil = body.lockDays && body.lockDays > 0
+      ? now + body.lockDays * 24 * 60 * 60 * 1000
+      : null;
 
     const zap = await createZap({
       id,
@@ -55,11 +60,12 @@ export async function POST(req: NextRequest) {
       token: normalizedToken,
       claim_secret: claimSecret,
       tx_hash: txHash || null,
-      created_at: Date.now(),
+      created_at: now,
       message: message || null,
       type: type as "send" | "split",
       group_id: groupId || null,
       yield_apy: apy,
+      locked_until: lockedUntil,
     });
 
     await sendClaimEmail({
