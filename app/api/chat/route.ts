@@ -220,5 +220,5 @@ You have access to real on-chain data through your tools. Always use tools to ge
     maxSteps: 5,
   });
 
-  return result.toDataStreamResponse();
+  return result.toUIMessageStreamResponse();
 }

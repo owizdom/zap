@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "./components/providers";
+import AiChat from "./components/AiChat";
 
 export const metadata: Metadata = {
   title: "Zapp — Send crypto to anyone",
@@ -32,7 +33,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <AiChat />
+        </Providers>
       </body>
     </html>
   );

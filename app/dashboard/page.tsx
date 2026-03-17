@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import AiChat from "@/app/components/AiChat";
 
 interface Zap {
   id: string;
@@ -619,7 +618,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-      <AiChat />
     </main>
   );
 }
