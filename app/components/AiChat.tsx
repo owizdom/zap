@@ -169,10 +169,16 @@ export default function AiChat() {
             {messages
               .filter((m) => m.role === "user" || m.role === "assistant")
               .map((m) => {
-                const text = m.parts
-                  ?.filter((p) => p.type === "text")
-                  .map((p) => (p as { type: "text"; text: string }).text)
-                  .join("") || "";
+                let text = "";
+                if (m.parts && m.parts.length > 0) {
+                  text = m.parts
+                    .filter((p: any) => p.type === "text")
+                    .map((p: any) => p.text || "")
+                    .join("");
+                }
+                if (!text && (m as any).content) {
+                  text = (m as any).content;
+                }
                 if (!text) return null;
                 return (
                   <div
