@@ -7,6 +7,7 @@ Zapp is an email-native crypto transfer platform on Starknet. Send STRK, ETH, or
 Built with the [StarkZap SDK](https://github.com/keep-starknet-strange/starkzap) — **28 SDK modules used**.
 
 **Live:** [zapp-five.vercel.app](https://zapp-five.vercel.app)
+**Demo:** [Watch on YouTube](https://youtu.be/cVmv_5Y4CyY)
 **Contract:** [`0x0728c...5d0e`](https://sepolia.voyager.online/contract/0x0728c9fdb708ddaf950f52032f1b136c74240cf40eebf4c51a6e7f6d0f0e7bbb) (Starknet Sepolia)
 
 ---
