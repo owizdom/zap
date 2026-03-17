@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const { messages } = await req.json();
 
   const result = streamText({
-    model: groq("llama-3.1-70b-versatile"),
+    model: groq("llama-3.3-70b-versatile"),
     system: `You are the Zapp AI assistant — a helpful agent for Zapp, an email-native crypto transfer platform on Starknet.
 
 You can check balances, staking positions, APY rates, list transfers/streams/requests, and answer questions about Zapp.
