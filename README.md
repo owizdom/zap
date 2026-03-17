@@ -65,6 +65,7 @@ AI Agent (MCP)              |
 | **Contacts** | Auto-populated from transfer history, nicknames, search | `/contacts` |
 | **Dashboard** | Full history, status tracking, live yield, staking position | `/dashboard` |
 | **AI Quick-fill** | Natural language input: "Send 10 STRK to alice@gmail.com for dinner" | `/send` |
+| **AI Chat** | On-chain data assistant — balances, staking, transfers, yield estimates | Every page |
 
 ### Claim flow (zero crypto knowledge)
 
@@ -199,7 +200,7 @@ Every module listed here is used in production code, verified in source.
 | Database | Turso (cloud SQLite via libSQL) |
 | Email | Nodemailer (Gmail SMTP) |
 | Auth | NextAuth.js (Google OAuth) |
-| AI Integration | MCP server (30 tools) |
+| AI Integration | MCP server (30 tools), AI Chat (Groq + live on-chain data) |
 
 ---
 
