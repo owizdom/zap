@@ -408,17 +408,7 @@ export default function DashboardPage() {
                         {/* Actions */}
                         <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
                           {(zap.status === "pending" || zap.status === "funded") && (
-                            <>
-                              <button onClick={() => copyLink(zap.id)} className="btn-secondary"
-                                style={{ fontSize: 12, color: copied === zap.id ? "#10b981" : undefined }}>
-                                {copied === zap.id ? "Copied" : "Copy link"}
-                              </button>
-                              <button onClick={() => resendEmail(zap.id)} className="btn-secondary"
-                                style={{ fontSize: 12, color: resending === zap.id ? "#10b981" : undefined }}
-                                disabled={resending === zap.id}>
-                                {resending === zap.id ? "Sent ✓" : "Resend email"}
-                              </button>
-                            </>
+                            <span style={{ fontSize: 11, color: "#4b5563" }}>Claim link sent via email</span>
                           )}
                           {zap.txHash && (
                             <a href={`https://sepolia.voyager.online/tx/${zap.txHash}`} target="_blank" rel="noopener noreferrer"
@@ -429,11 +419,8 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #1e1e35", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #1e1e35" }}>
                         <span style={{ fontFamily: "monospace", fontSize: 11, color: "#2a2a4a" }}>{zap.id}</span>
-                        <Link href={`/claim/${zap.id}`} style={{ fontSize: 12, color: "#4b5563", textDecoration: "none" }}>
-                          View claim page →
-                        </Link>
                       </div>
                     </div>
                   );
