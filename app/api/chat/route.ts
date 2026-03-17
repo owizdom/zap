@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { streamText, tool } from "ai";
+import { streamText, tool, stepCountIs } from "ai";
 import { createGroq } from "@ai-sdk/groq";
 import { z } from "zod";
 
@@ -222,7 +222,7 @@ You have access to real on-chain data through your tools. Always use tools to ge
         },
       }),
     },
-    maxSteps: 5,
+    stopWhen: stepCountIs(5),
   });
 
   return result.toUIMessageStreamResponse();
