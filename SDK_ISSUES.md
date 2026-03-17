@@ -17,7 +17,7 @@ const sdk = new StarkZap({ network: "sepolia\n" });
 
 **Root cause:** The SDK does `networks[config.network]` — `networks["sepolia\n"]` returns `undefined` since only `"sepolia"` and `"mainnet"` are valid keys. The error then says network wasn't provided, which is wrong — it was provided, just with a trailing newline.
 
-**Impact:** Every SDK operation failed — staking, transfers, wallet creation. The error gave no hint about whitespace. We lost hours debugging before running `vercel env pull` and spotting raw `\n` bytes in the env value.
+**Impact:** Every SDK operation failed — staking, transfers, wallet creation. The error gave no hint about whitespace. I lost hours debugging before running `vercel env pull` and spotting raw `\n` bytes in the env value.
 
 **Suggested fix:**
 ```ts
@@ -27,7 +27,7 @@ if (network && !networks[network]) {
 }
 ```
 
-**Our workaround:** `.trim()` on every env var before passing to the SDK.
+**My workaround:** `.trim()` on every env var before passing to the SDK.
 
 ---
 
@@ -52,7 +52,7 @@ The SDK already knows the network, so it knows the provider, chain ID, and staki
 const staking = await sdk.getStaking(validator, token);
 ```
 
-**Impact:** Every project using staking writes the same 4-line setup. We see the same pattern in StarkFlame, StarkSplit, and StarkFolio submissions — everyone wraps it in a helper because the SDK doesn't provide one.
+**Impact:** Every project using staking writes the same 4-line setup. I see the same pattern in StarkFlame, StarkSplit, and StarkFolio submissions — everyone wraps it in a helper because the SDK doesn't provide one.
 
 ---
 
@@ -74,8 +74,8 @@ interface PrivySignerConfig {
 }
 ```
 
-**Questions we had to answer by reading SDK source:**
-- Do we provide `serverUrl` OR `rawSign`? (Answer: one or the other)
+**Questions I had to answer by reading SDK source:**
+- Do I provide `serverUrl` OR `rawSign`? (Answer: one or the other)
 - What format does `rawSign` expect? Hex string? BigInt? (Answer: hex)
 - Is `publicKey` the Stark key or the Privy wallet's key?
 - What does the signing endpoint request/response look like?
@@ -86,7 +86,7 @@ interface PrivySignerConfig {
 
 ## Summary
 
-| # | Issue | Severity | Our workaround |
+| # | Issue | Severity | My workaround |
 |---|-------|----------|----------------|
 | 1 | Invalid network string causes misleading error | Critical | `.trim()` all env vars |
 | 2 | Staking setup boilerplate (4 lines that could be 1) | Medium | Helper function in `lib/escrow.ts` |
@@ -94,4 +94,5 @@ interface PrivySignerConfig {
 
 ---
 
-*All issues from real production usage. Zapp uses 28 SDK modules — we've exercised the SDK deeply enough to find these.*
+*All issues from real production usage. Zapp uses 28 SDK modules — I've exercised the SDK deeply enough to find these.*
+
