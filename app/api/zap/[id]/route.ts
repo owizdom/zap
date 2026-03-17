@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getZap } from "@/lib/db";
 import { calcYield, calcProtocolFee, formatToken } from "@/lib/yield";
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  const show = Math.min(3, Math.floor(local.length / 2));
+  return `${local.slice(0, show)}***@${domain}`;
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,8 +28,8 @@ export async function GET(
 
   return NextResponse.json({
     id: zap.id,
-    fromEmail: zap.from_email,
-    toEmail: zap.to_email,
+    fromEmail: maskEmail(zap.from_email),
+    toEmail: maskEmail(zap.to_email),
     amount: formatToken(BigInt(zap.amount_raw), zap.token),
     yieldEarned: formatToken(recipientYield, zap.token),
     protocolFee: formatToken(protocolFee, zap.token),
