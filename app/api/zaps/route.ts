@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { getAllZaps } from "@/lib/db";
 import { calcYield, calcProtocolFee, formatToken } from "@/lib/yield";
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  return `${local.slice(0, 3)}***@${domain}`;
+}
+
 export async function GET() {
   const zaps = await getAllZaps();
 
@@ -14,8 +20,8 @@ export async function GET() {
       const totalRaw = BigInt(z.amount_raw) + yieldEarned;
       return {
         id: z.id,
-        fromEmail: z.from_email,
-        toEmail: z.to_email,
+        fromEmail: maskEmail(z.from_email),
+        toEmail: maskEmail(z.to_email),
         amount: formatToken(BigInt(z.amount_raw), z.token),
         yieldEarned: formatToken(yieldEarned, z.token),
         total: formatToken(totalRaw, z.token),
@@ -25,7 +31,7 @@ export async function GET() {
         createdAt: z.created_at,
         claimedAt: z.claimed_at,
         recipientAddress: z.recipient_address,
-        message: z.message,
+        message: z.message ? "***" : null,
         type: z.type,
         groupId: z.group_id,
         apy,
